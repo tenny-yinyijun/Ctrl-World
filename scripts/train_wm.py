@@ -18,16 +18,14 @@ from tqdm.auto import tqdm
 import json
 from decord import VideoReader, cpu
 import wandb
-import swanlab
 import mediapy
 from models.ctrl_world import CrtlWorld
-from config import wm_args
+from droid_irom_highres_notextcond import wm_args
 import math
 
 
 def main(args):
     logger = get_logger(__name__, log_level="INFO")
-    swanlab.sync_wandb()
     accelerator = Accelerator(
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         mixed_precision=args.mixed_precision,
@@ -50,7 +48,22 @@ def main(args):
         now = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
         tag = args.tag
         run_name = f"train_{now}_{tag}"
-        accelerator.init_trackers(args.wandb_project_name,config={}, init_kwargs={"wandb":{"name":run_name}})
+        config = {
+            "learning_rate": args.learning_rate,
+            "train_batch_size": args.train_batch_size,
+            "gradient_accumulation_steps": args.gradient_accumulation_steps,
+            "mixed_precision": args.mixed_precision,
+            "max_train_steps": args.max_train_steps,
+            "max_grad_norm": args.max_grad_norm,
+            "checkpointing_steps": args.checkpointing_steps,
+            "validation_steps": args.validation_steps,
+            "num_frames": args.num_frames,
+            "num_history": args.num_history,
+            "width": args.width,
+            "height": args.height,
+            "tag": args.tag,
+        }
+        accelerator.init_trackers(args.wandb_project_name, config=config, init_kwargs={"wandb":{"name":run_name}})
         os.makedirs(args.output_dir, exist_ok=True)
         # count parameters num in each part
         num_params = sum(p.numel() for p in model.unet.parameters())
@@ -108,7 +121,7 @@ def main(args):
                 with accelerator.autocast():
                     loss_gen, _ = model(batch)
                 avg_loss = accelerator.gather(loss_gen.repeat(args.train_batch_size)).mean()
-                train_loss += avg_loss.item()/ args.gradient_accumulation_steps
+                train_loss += avg_loss.item()
                 accelerator.backward(loss_gen)
                 params_to_clip = model.parameters()
                 if accelerator.sync_gradients:
@@ -116,14 +129,18 @@ def main(args):
                 optimizer.step()
                 optimizer.zero_grad()
                 forward_step += 1
-            
+
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
-                # log loss every 100 steps
-                if global_step %100 == 0:
-                    progress_bar.set_postfix({"loss": train_loss})
-                    accelerator.log({"train_loss": train_loss/100}, step=global_step)
+                # log loss and lr every 100 steps
+                if global_step % 100 == 0:
+                    avg_train_loss = train_loss / 100
+                    progress_bar.set_postfix({"loss": avg_train_loss})
+                    accelerator.log({
+                        "train_loss": avg_train_loss,
+                        "learning_rate": optimizer.param_groups[0]['lr']
+                    }, step=global_step)
                     train_loss = 0.0
                 # save ckpt every checkpointing_steps
                 if global_step % args.checkpointing_steps == 0 and accelerator.is_main_process:
@@ -131,7 +148,7 @@ def main(args):
                     torch.save(accelerator.unwrap_model(model).state_dict(), save_path)
                     logger.info(f"Saved checkpoint to {save_path}")
                 # generate video every validation_steps
-                if global_step % args.validation_steps == 5 and accelerator.is_main_process:
+                if global_step % args.validation_steps == 0 and accelerator.is_main_process:
                     model.eval()
                     with accelerator.autocast():
                         for id in range(args.video_num):

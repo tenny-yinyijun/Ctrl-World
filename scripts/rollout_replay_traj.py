@@ -88,31 +88,73 @@ class agent():
         args = self.args
         skip = args.skip_step
         num_frames = steps
-        annotation_path = f"{val_dataset_dir}/annotation/val/{id}.json"
+        annotation_path = f"{val_dataset_dir}/json/{id}.json"
         with open(annotation_path) as f:
             anno = json.load(f)
-            try:
+            # Handle new dataset format
+            if 'obs_state_cart' in anno:
+                # New dataset format
+                length = len(anno['obs_state_cart'])
+            elif 'action' in anno:
                 length = len(anno['action'])
-            except:
+            else:
                 length = anno["video_length"]
-        frames_ids = np.arange(start_idx, start_idx + num_frames * skip, skip)
+
+        # Determine the actual skip step based on whether data is already downsampled
+        # If not downsampled, data is at 15Hz and needs to be downsampled by factor of 3 to get 5Hz
+        downsample_factor = 1 if args.downsampled else 3
+        actual_skip = skip * downsample_factor
+
+        frames_ids = np.arange(start_idx, start_idx + num_frames * actual_skip, actual_skip)
         max_ids = np.ones_like(frames_ids) * (length - 1)
         frames_ids = np.min([frames_ids, max_ids], axis=0).astype(int)
-        print("Ground truth frames ids", frames_ids)
+        print(f"Ground truth frames ids (downsampled={args.downsampled}, downsample_factor={downsample_factor}): {frames_ids}")
 
-        # get action and joint pos
-        instruction = anno['texts'][0]
-        car_action = np.array(anno['states'])
+        # get action and joint pos - handle both old and new dataset formats
+        if 'texts' in anno:
+            instruction = anno['texts'][0]
+        else:
+            instruction = ""
+
+        # Handle new dataset format with obs_state_cart and obs_state_jointpos
+        if 'obs_state_cart' in anno:
+            car_action = np.array(anno['obs_state_cart'])
+            # obs_state_cart is 6-dim (xyz + rotation), need to add gripper state
+            # Add a column of zeros for gripper (or use obs_state_jointpos[-1] if available)
+            if car_action.shape[1] == 6:
+                gripper_state = np.zeros((len(car_action), 1))
+                if 'obs_state_jointpos' in anno:
+                    # Use the last dimension of obs_state_jointpos as gripper
+                    joint_full = np.array(anno['obs_state_jointpos'])
+                    if joint_full.shape[1] >= 7:
+                        gripper_state = joint_full[:, -1:]
+                car_action = np.concatenate([car_action, gripper_state], axis=1)
+        else:
+            car_action = np.array(anno['states'])
         car_action = car_action[frames_ids]
-        joint_pos = np.array(anno['joints'])
+
+        if 'obs_state_jointpos' in anno:
+            joint_pos = np.array(anno['obs_state_jointpos'])
+            # If joint_pos is 7-dim, add a gripper column to make it 8-dim
+            if joint_pos.shape[1] == 7:
+                gripper_state = joint_pos[:, -1:]  # Use last dim as gripper
+                joint_pos = np.concatenate([joint_pos[:, :-1], gripper_state, gripper_state], axis=1)
+        else:
+            joint_pos = np.array(anno['joints'])
         joint_pos = joint_pos[frames_ids]
 
-        # get videos
-        video_dict =[]
+        # get videos - handle both old and new dataset formats
+        video_dict = []
         video_latent = []
-        for id in range(len(anno['videos'])):
-            video_path = anno['videos'][id]['video_path']
-            video_path = f"{val_dataset_dir}/{video_path}"
+
+        if 'videos' in anno:
+            # Old dataset format
+            video_paths = [f"{val_dataset_dir}/{anno['videos'][i]['video_path']}" for i in range(len(anno['videos']))]
+        else:
+            # New dataset format - video is in videos_three_view_vertical/{id}.mp4
+            video_paths = [f"{val_dataset_dir}/videos_three_view_vertical/{id}.mp4"]
+
+        for video_path in video_paths:
             # load videos from all views
             vr = VideoReader(video_path, ctx=cpu(0), num_threads=2)
             try:
@@ -135,7 +177,7 @@ class agent():
                     latent = vae.encode(batch).latent_dist.sample().mul_(vae.config.scaling_factor)
                     latents.append(latent)
                 x = torch.cat(latents, dim=0)
-    
+
             video_latent.append(x)
 
         
@@ -212,6 +254,14 @@ class agent():
         videos = videos.detach().to(torch.float32).cpu().numpy().transpose(0,1,3,4,2).astype(np.uint8)
 
         # concatenate true videos and video
+        
+        # (1, 5, 576, 320, 3) -> (3, 5, 192, 320, 3)
+        true_video = einops.rearrange(
+            true_video, 
+            '1 t (b h) w c -> b t h w c', 
+            b=3, h=192
+        )
+       
         videos_cat = np.concatenate([true_video,videos],axis=-3) # (3, 8, 256, 256, 3)
         videos_cat = np.concatenate([video for video in videos_cat],axis=-2).astype(np.uint8) 
 
@@ -219,7 +269,8 @@ class agent():
 
         
 if __name__ == "__main__":
-    from config import wm_args
+    from droid_irom_highres_withtextcond import wm_args
+    # from droid_irom_lowres_withtextcond import wm_args
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument('--svd_model_path', type=str, default=None)
@@ -229,6 +280,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset_meta_info_path', type=str, default=None)
     parser.add_argument('--dataset_names', type=str, default=None)
     parser.add_argument('--task_type', type=str, default='replay')
+    parser.add_argument('--downsampled', action='store_true', help='If set, assumes input is already downsampled to 5Hz. Otherwise, assumes 15Hz input and downsamples by factor of 3.')
     args_new = parser.parse_args()
 
     args = wm_args(task_type=args_new.task_type)
