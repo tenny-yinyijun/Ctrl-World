@@ -20,7 +20,7 @@ from decord import VideoReader, cpu
 import wandb
 import mediapy
 from models.ctrl_world import CrtlWorld
-from droid_irom_highres_notextcond import wm_args
+from droid_irom_finetune import wm_args
 import math
 
 
@@ -44,26 +44,27 @@ def main(args):
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
 
     # logs
+    now = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+    tag = args.tag
+    run_name = f"train_{now}_{tag}"
+    config = {
+        "learning_rate": args.learning_rate,
+        "train_batch_size": args.train_batch_size,
+        "gradient_accumulation_steps": args.gradient_accumulation_steps,
+        "mixed_precision": args.mixed_precision,
+        "max_train_steps": args.max_train_steps,
+        "max_grad_norm": args.max_grad_norm,
+        "checkpointing_steps": args.checkpointing_steps,
+        "validation_steps": args.validation_steps,
+        "num_frames": args.num_frames,
+        "num_history": args.num_history,
+        "width": args.width,
+        "height": args.height,
+        "tag": args.tag,
+    }
+    accelerator.init_trackers(args.wandb_project_name, config=config, init_kwargs={"wandb":{"name":run_name}})
+
     if accelerator.is_main_process:
-        now = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
-        tag = args.tag
-        run_name = f"train_{now}_{tag}"
-        config = {
-            "learning_rate": args.learning_rate,
-            "train_batch_size": args.train_batch_size,
-            "gradient_accumulation_steps": args.gradient_accumulation_steps,
-            "mixed_precision": args.mixed_precision,
-            "max_train_steps": args.max_train_steps,
-            "max_grad_norm": args.max_grad_norm,
-            "checkpointing_steps": args.checkpointing_steps,
-            "validation_steps": args.validation_steps,
-            "num_frames": args.num_frames,
-            "num_history": args.num_history,
-            "width": args.width,
-            "height": args.height,
-            "tag": args.tag,
-        }
-        accelerator.init_trackers(args.wandb_project_name, config=config, init_kwargs={"wandb":{"name":run_name}})
         os.makedirs(args.output_dir, exist_ok=True)
         # count parameters num in each part
         num_params = sum(p.numel() for p in model.unet.parameters())
@@ -79,22 +80,42 @@ def main(args):
 
     # train and val datasets
     from dataset.dataset_droid_exp33 import Dataset_mix
+    import copy
     train_dataset = Dataset_mix(args,mode='train')
-    val_dataset = Dataset_mix(args,mode='val')
+
+    # Define multiple validation datasets with their metric prefixes
+    # Format: (dataset_name, dataset_cfg, metric_prefix)
+    validation_configs = [
+        (args.dataset_names, args.dataset_cfgs, "val"),  # Regular val split
+        ("droid_validation", "droid_validation", "droid_val"),  # Check for forgetting
+        ("irom_test", "irom_test", "irom_val"),  # Check for overfitting
+        # Add more validation datasets here as needed, e.g.:
+        # ("new_dataset_name", "new_dataset_cfg", "new_val"),
+    ]
+
+    # Create validation datasets
+    val_datasets = []
+    for dataset_name, dataset_cfg, prefix in validation_configs:
+        val_args = copy.deepcopy(args)
+        val_args.dataset_names = dataset_name
+        val_args.dataset_cfgs = dataset_cfg
+        val_args.prob = [1.0]
+        val_dataset = Dataset_mix(val_args, mode='val')
+        val_datasets.append((val_dataset, prefix))
+
     train_dataloader = torch.utils.data.DataLoader(
-        train_dataset, 
+        train_dataset,
         batch_size=args.train_batch_size,
-        shuffle=args.shuffle
-    )
-    val_dataloader = torch.utils.data.DataLoader(
-        val_dataset, 
-        batch_size=args.train_batch_size,
-        shuffle=args.shuffle
+        shuffle=args.shuffle,
+        num_workers=args.num_workers,
+        pin_memory=True,
+        prefetch_factor=2,
+        persistent_workers=True if args.num_workers > 0 else False
     )
 
     # Prepare everything with our accelerator
-    model, optimizer, train_dataloader, val_dataloader = accelerator.prepare(
-        model, optimizer, train_dataloader, val_dataloader
+    model, optimizer, train_dataloader = accelerator.prepare(
+        model, optimizer, train_dataloader
     )
    
     ############################ training ##############################
@@ -112,6 +133,7 @@ def main(args):
     global_step = 0
     forward_step=0
     train_loss = 0.0
+    grad_norm = 0.0
     progress_bar = tqdm(range(global_step, args.max_train_steps), disable=not accelerator.is_local_main_process)
     progress_bar.set_description("Steps")
 
@@ -125,7 +147,8 @@ def main(args):
                 accelerator.backward(loss_gen)
                 params_to_clip = model.parameters()
                 if accelerator.sync_gradients:
-                    accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
+                    total_norm = accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
+                    grad_norm += total_norm.item()
                 optimizer.step()
                 optimizer.zero_grad()
                 forward_step += 1
@@ -136,12 +159,15 @@ def main(args):
                 # log loss and lr every 100 steps
                 if global_step % 100 == 0:
                     avg_train_loss = train_loss / 100
+                    avg_grad_norm = grad_norm / 100
                     progress_bar.set_postfix({"loss": avg_train_loss})
                     accelerator.log({
                         "train_loss": avg_train_loss,
-                        "learning_rate": optimizer.param_groups[0]['lr']
+                        "learning_rate": optimizer.param_groups[0]['lr'],
+                        "grad_norm": avg_grad_norm
                     }, step=global_step)
                     train_loss = 0.0
+                    grad_norm = 0.0
                 # save ckpt every checkpointing_steps
                 if global_step % args.checkpointing_steps == 0 and accelerator.is_main_process:
                     save_path = os.path.join(args.output_dir, f"checkpoint-{global_step}.pt")
@@ -151,8 +177,10 @@ def main(args):
                 if global_step % args.validation_steps == 0 and accelerator.is_main_process:
                     model.eval()
                     with accelerator.autocast():
-                        for id in range(args.video_num):
-                            validate_video_generation(model, val_dataset, args,global_step, args.output_dir, id, accelerator)
+                        # Validate on all configured validation datasets
+                        for val_dataset, metric_prefix in val_datasets:
+                            for id in range(args.video_num):
+                                validate_video_generation(model, val_dataset, args, global_step, args.output_dir, id, accelerator, metric_prefix=metric_prefix)
                     model.train()
 
 
@@ -169,7 +197,7 @@ def main_val(args):
     
             
 
-def validate_video_generation(model, val_dataset, args, train_steps, videos_dir, id, accelerator, load_from_dataset=True):
+def validate_video_generation(model, val_dataset, args, train_steps, videos_dir, id, accelerator, load_from_dataset=True, metric_prefix="val"):
     device = accelerator.device
     pipeline = model.module.pipeline if accelerator.num_processes > 1 else model.pipeline
     videos_row = args.video_num if not args.debug else 1
@@ -214,7 +242,29 @@ def validate_video_generation(model, val_dataset, args, train_steps, videos_dir,
             his_cond_zero=args.his_cond_zero,
         )
     
-    pred_latents = einops.rearrange(pred_latents, 'b f c (m h) (n w) -> (b m n) f c h w', m=3,n=1) # (B, 8, 4, 32,32)
+    # Compute MSE metrics before rearranging
+    overall_mse = torch.nn.functional.mse_loss(pred_latents, future_latent_ft).item()
+
+    # Rearrange to split views for per-view metrics
+    pred_latents_views = einops.rearrange(pred_latents, 'b f c (m h) (n w) -> (b m n) f c h w', m=3, n=1)
+    future_latent_views = einops.rearrange(future_latent_ft, 'b f c (m h) (n w) -> (b m n) f c h w', m=3, n=1)
+
+    # Compute per-view MSE (left, right, wrist)
+    bsz_total = pred_latents_views.shape[0]
+    left_mse = torch.nn.functional.mse_loss(pred_latents_views[0::3], future_latent_views[0::3]).item()
+    right_mse = torch.nn.functional.mse_loss(pred_latents_views[1::3], future_latent_views[1::3]).item()
+    wrist_mse = torch.nn.functional.mse_loss(pred_latents_views[2::3], future_latent_views[2::3]).item()
+
+    # Log metrics to wandb
+    if accelerator.is_main_process:
+        accelerator.log({
+            f"{metric_prefix}/mse_overall_id{id}": overall_mse,
+            f"{metric_prefix}/mse_left_id{id}": left_mse,
+            f"{metric_prefix}/mse_right_id{id}": right_mse,
+            f"{metric_prefix}/mse_wrist_id{id}": wrist_mse,
+        }, step=train_steps)
+
+    pred_latents = pred_latents_views
     video_gt = torch.cat([his_latent_gt, future_latent_ft], dim=1) # (B, 8, 4, 32,32)
     video_gt = einops.rearrange(video_gt, 'b f c (m h) (n w) -> (b m n) f c h w', m=3,n=1) # (B, 8, 4, 32,32)
     
@@ -251,7 +301,7 @@ def validate_video_generation(model, val_dataset, args, train_steps, videos_dir,
     videos = np.concatenate([video for video in videos],axis=-2).astype(np.uint8) # (16,512,256*batch,3)
     
     os.makedirs(f"{videos_dir}/samples", exist_ok=True)
-    filename = f"{videos_dir}/samples/train_steps_{train_steps}_{id}.mp4"
+    filename = f"{videos_dir}/samples/{metric_prefix}_train_steps_{train_steps}_{id}.mp4"
     mediapy.write_video(filename, videos, fps=2)
     return 
 

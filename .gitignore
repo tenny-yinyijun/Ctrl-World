@@ -1,6 +1,11 @@
 *__pycache__*
+checkpoints/
+clip-vit-base-patch32/
 wandb*
 swanlog*
+dataset_example/
+dataset_meta_info/
+stable-video-diffusion-img2vid/
 output*
 dataset_example/merge.py
 predictions*
@@ -10,3 +15,6 @@ video_models_logs*
 model_ckpt*
 synthetic_traj*
 dataset_example/droid_subset/annotation/val_old*
+
+tmp_*
+slurm_outputs/

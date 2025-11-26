@@ -68,6 +68,7 @@ if __name__ == "__main__":
     
     ########################### xhand datasets ###########################
     sequence_length = 8
+    # for data_type in ['val']:
     for data_type in ['val', 'train']:
         samples_all = []
         ann_files_all = []

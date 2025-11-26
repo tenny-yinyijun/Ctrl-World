@@ -130,12 +130,7 @@ class Dataset_mix(Dataset):
     def __getitem__(self, index):
 
         # first sample the dataset id, than sample the data from the dataset
-        # For validation, use deterministic dataset selection (always first dataset)
-        # For training, randomly sample based on probability
-        if self.mode == 'val':
-            dataset_id = 0
-        else:
-            dataset_id = np.random.choice(len(self.samples_all), p=self.prob)
+        dataset_id = np.random.choice(len(self.samples_all), p=self.prob)
         samples = self.samples_all[dataset_id]
         dataset_path = self.dataset_path_all[dataset_id]
         state_p01, state_p99 = self.norm_all[dataset_id]
@@ -152,17 +147,11 @@ class Dataset_mix(Dataset):
         # since we downsample the video from 15hz to 5 hz to save the storage space, the frame id is 1/3 of the state id
         joint_len = len(label['observation.state.joint_position'])-1
         frame_len = np.floor(joint_len / 3)
-
-        # Use fixed skip values for validation to ensure deterministic evaluation
-        if self.mode == 'val':
-            skip = 1
-            skip_his = 4
-        else:
-            skip = random.randint(1, 2)
-            skip_his = int(skip*4)
-            p = random.random()
-            if p < 0.15:
-                skip_his = 0
+        skip = random.randint(1, 2)
+        skip_his = int(skip*4)
+        p = random.random()
+        if p < 0.15:
+            skip_his = 0
         
         # rgb_id and state_id
         frame_now = frame_ids[0]
@@ -191,10 +180,10 @@ class Dataset_mix(Dataset):
         latnt_cond1,_ = self._get_obs(label, rgb_id, cond_cam_id1, pre_encode=True, video_dir=dataset_dir)
         latnt_cond2,_ = self._get_obs(label, rgb_id, cond_cam_id2, pre_encode=True, video_dir=dataset_dir)
         latnt_cond3,_ = self._get_obs(label, rgb_id, cond_cam_id3, pre_encode=True, video_dir=dataset_dir)
-        latent = torch.zeros((self.args.num_frames+self.args.num_history, 4, 72, 40), dtype=torch.float32)
-        latent[:,:,0:24] =  latnt_cond1
-        latent[:,:,24:48] = latnt_cond2
-        latent[:,:,48:72] = latnt_cond3
+        latent = torch.zeros((self.args.num_frames+self.args.num_history, 4, 39, 24), dtype=torch.float32)
+        latent[:,:,0:13] =  latnt_cond1
+        latent[:,:,13:26] = latnt_cond2
+        latent[:,:,26:39] = latnt_cond3
         data['latent'] = latent.float()
 
         # prepare action cond data

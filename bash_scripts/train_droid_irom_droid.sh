@@ -22,4 +22,4 @@ conda activate ctrl-world
 export OMP_NUM_THREADS=1
 export PYTHONUNBUFFERED=1
 
-accelerate launch --main_process_port 29501 scripts/train_wm4.py --dataset_root_path dataset_example --dataset_meta_info_path dataset_meta_info --dataset_names droid_irom_lowres
+accelerate launch --main_process_port 29501 scripts/train_wm.py --dataset_root_path dataset_example --dataset_meta_info_path dataset_meta_info --dataset_names droid_irom

@@ -126,14 +126,25 @@ Our experiments are run on one/two nodes each with 8 A100/H100 cards.
 ### 🛸 (1) Prepare dataset
 (1) Since the video diffusion model are run in latent space of image encoder, we first extract the latent sapce of the video to improve training efficiency. After download the [huggingface DROID datasets](https://huggingface.co/datasets/cadene/droid_1.0.1), you can run the following command to extract latent in parrallel:
 ```bash
-accelerate launch dataset_example/extract_latent.py --droid_hf_path ${path to droid} --droid_output_path dataset_example/droid --svd_path ${path to svd}
+accelerate launch dataset_example/extract_latent.py --droid_hf_path ${path to droid} --droid_output_path dataset_example/droid --svd_path /n/fs/tom-project/video_models/Ctrl-World/stable-video-diffusion-img2vid
 ```
 The processed data will be saved at `dataset_example/droid`. The structure of this dataset should be same as `dataset_example/droid_subset`, we already included some trajectories in it.
 
+```bash
+# droid validation
+accelerate launch dataset_example/extract_latent_droid_validation.py \
+    --droid_raw_path /n/fs/iromdata/droid_raw/1.0.1 \
+    --output_path dataset_example/droid_validation \
+    --svd_path /n/fs/tom-project/video_models/Ctrl-World/stable-video-diffusion-img2vid \
+    --num_samples 100
+```
 
 (2) After extract the video latent, we can prepare dataset meta information, which create a json file include all items and calculate the normalization of states and actions, which are required during training.
 ```bash
 python dataset_meta_info/create_meta_info.py --droid_output_path ${path to processed droid data} --dataset_name droid
+
+# example
+python dataset_meta_info/create_meta_info.py --droid_output_path /n/fs/tom-project/video_models/Ctrl-World/dataset_example/droid_validation --dataset_name droid_validation
 ```
 
 ### 🛸 (2) Launch training
