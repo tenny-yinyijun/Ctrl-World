@@ -179,8 +179,20 @@ def main(args):
                     with accelerator.autocast():
                         # Validate on all configured validation datasets
                         for val_dataset, metric_prefix in val_datasets:
+                            # Collect metrics from all validation samples
+                            all_metrics = []
                             for id in range(args.video_num):
-                                validate_video_generation(model, val_dataset, args, global_step, args.output_dir, id, accelerator, metric_prefix=metric_prefix)
+                                metrics = validate_video_generation(model, val_dataset, args, global_step, args.output_dir, id, accelerator, metric_prefix=metric_prefix)
+                                all_metrics.append(metrics)
+
+                            # Average metrics across all samples
+                            avg_metrics = {
+                                f"{metric_prefix}/mse_overall": np.mean([m['overall_mse'] for m in all_metrics]),
+                                f"{metric_prefix}/mse_left": np.mean([m['left_mse'] for m in all_metrics]),
+                                f"{metric_prefix}/mse_right": np.mean([m['right_mse'] for m in all_metrics]),
+                                f"{metric_prefix}/mse_wrist": np.mean([m['wrist_mse'] for m in all_metrics]),
+                            }
+                            accelerator.log(avg_metrics, step=global_step)
                     model.train()
 
 
@@ -255,14 +267,13 @@ def validate_video_generation(model, val_dataset, args, train_steps, videos_dir,
     right_mse = torch.nn.functional.mse_loss(pred_latents_views[1::3], future_latent_views[1::3]).item()
     wrist_mse = torch.nn.functional.mse_loss(pred_latents_views[2::3], future_latent_views[2::3]).item()
 
-    # Log metrics to wandb
-    if accelerator.is_main_process:
-        accelerator.log({
-            f"{metric_prefix}/mse_overall_id{id}": overall_mse,
-            f"{metric_prefix}/mse_left_id{id}": left_mse,
-            f"{metric_prefix}/mse_right_id{id}": right_mse,
-            f"{metric_prefix}/mse_wrist_id{id}": wrist_mse,
-        }, step=train_steps)
+    # Store metrics to return for averaging
+    metrics = {
+        'overall_mse': overall_mse,
+        'left_mse': left_mse,
+        'right_mse': right_mse,
+        'wrist_mse': wrist_mse,
+    }
 
     pred_latents = pred_latents_views
     video_gt = torch.cat([his_latent_gt, future_latent_ft], dim=1) # (B, 8, 4, 32,32)
@@ -303,7 +314,7 @@ def validate_video_generation(model, val_dataset, args, train_steps, videos_dir,
     os.makedirs(f"{videos_dir}/samples", exist_ok=True)
     filename = f"{videos_dir}/samples/{metric_prefix}_train_steps_{train_steps}_{id}.mp4"
     mediapy.write_video(filename, videos, fps=2)
-    return 
+    return metrics 
 
 
 
@@ -328,6 +339,10 @@ if __name__ == "__main__":
         return args
     
     args = merge_args(args, args_new)
+    
+    args.tag = f'1127_droid_irom_finetune-{args.dataset_names}'
+    args.output_dir = f"model_ckpt/{args.tag}"
+    args.wandb_run_name = args.tag
 
     main(args)
 

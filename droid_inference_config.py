@@ -26,12 +26,14 @@ class wm_args:
     down_sample=3 # downsample 15hz to 5hz
     skip_step = 1
     
+
     # logs parameters
     debug = False
-    tag = f'1127_droid_irom_finetune-{dataset_names}'
+    tag = '1127_droid_irom_finetune'
     output_dir = f"model_ckpt/{tag}"
     wandb_run_name = tag
     wandb_project_name = "droid_example"
+
 
     # training parameters
     learning_rate= 5e-7 #1e-5 # 5e-6
@@ -98,11 +100,11 @@ class wm_args:
 
         # Configure per-task eval sets
         if self.task_type == "replay":
-            self.val_dataset_dir = "dataset_example/droid_subset"
-            self.val_id = ["899", "18599","199",]
-            self.start_idx = [8, 14, 8] * len(self.val_id)
+            self.val_dataset_dir = "dataset_example/irom_play"
+            self.val_id = ["9", "19", "29", "39"]
+            self.start_idx = [0] * len(self.val_id)
             self.instruction = [""] * len(self.val_id)
-            self.task_name = "Rollouts_replay"
+            self.task_name = "Rollouts_replay_play"
 
         elif self.task_type == "keyboard":
             self.val_dataset_dir = "dataset_example/droid_subset"

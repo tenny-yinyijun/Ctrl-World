@@ -321,13 +321,21 @@ def plot_tsne(features, labels, title, output_path, horizon_info):
     unique_datasets = sorted(set(dataset_name for dataset_name, _, _ in labels))
 
     # Use a colormap to generate distinct colors
-    if len(unique_datasets) <= 10:
-        cmap = plt.cm.tab10
-    else:
-        cmap = plt.cm.tab20
+    # if len(unique_datasets) <= 10:
+    #     cmap = plt.cm.tab10
+    # else:
+    #     cmap = plt.cm.tab20
 
-    dataset_colors = {dataset: cmap(i / max(len(unique_datasets) - 1, 1))
-                     for i, dataset in enumerate(unique_datasets)}
+    # dataset_colors = {dataset: cmap(i / max(len(unique_datasets) - 1, 1))
+    #                  for i, dataset in enumerate(unique_datasets)}
+    
+    custom_colors = ["#ffa586","#83ed5f", "#bd91ff"]
+    
+    # Map each dataset to one of your custom colors
+    dataset_colors = {
+        dataset: custom_colors[i]
+        for i, dataset in enumerate(unique_datasets)
+    }
 
     # Create plot
     _, ax = plt.subplots(figsize=(16, 12))
@@ -493,3 +501,9 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+# python visualization/dataset_tsne_vis_clip_shorthor_wrist.py --dataset_names irom_1126_base2 irom_1126_all2 irom_1126_play --horizon_length 4 --num_samples 6
+
+
+# python visualization/dataset_tsne_vis_clip_shorthor.py --dataset_names irom_1126_base irom_1126_all irom_play irom_1126_play

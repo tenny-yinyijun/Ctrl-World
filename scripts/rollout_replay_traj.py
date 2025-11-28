@@ -88,13 +88,13 @@ class agent():
         args = self.args
         skip = args.skip_step
         num_frames = steps
-        annotation_path = f"{val_dataset_dir}/json/{id}.json"
+        annotation_path = f"{args.val_dataset_dir}/annotation/val/{id}.json"
         with open(annotation_path) as f:
             anno = json.load(f)
             # Handle new dataset format
-            if 'obs_state_cart' in anno:
+            if 'observation.state.cartesian_position' in anno:
                 # New dataset format
-                length = len(anno['obs_state_cart'])
+                length = len(anno['observation.state.cartesian_position'])
             elif 'action' in anno:
                 length = len(anno['action'])
             else:
@@ -109,7 +109,7 @@ class agent():
         max_ids = np.ones_like(frames_ids) * (length - 1)
         frames_ids = np.min([frames_ids, max_ids], axis=0).astype(int)
         print(f"Ground truth frames ids (downsampled={args.downsampled}, downsample_factor={downsample_factor}): {frames_ids}")
-
+        length = len(frames_ids)
         # get action and joint pos - handle both old and new dataset formats
         if 'texts' in anno:
             instruction = anno['texts'][0]
@@ -117,15 +117,15 @@ class agent():
             instruction = ""
 
         # Handle new dataset format with obs_state_cart and obs_state_jointpos
-        if 'obs_state_cart' in anno:
-            car_action = np.array(anno['obs_state_cart'])
+        if 'observation.state.cartesian_position' in anno:
+            car_action = np.array(anno['observation.state.cartesian_position'])
             # obs_state_cart is 6-dim (xyz + rotation), need to add gripper state
             # Add a column of zeros for gripper (or use obs_state_jointpos[-1] if available)
             if car_action.shape[1] == 6:
                 gripper_state = np.zeros((len(car_action), 1))
-                if 'obs_state_jointpos' in anno:
+                if 'observation.state.joint_position' in anno:
                     # Use the last dimension of obs_state_jointpos as gripper
-                    joint_full = np.array(anno['obs_state_jointpos'])
+                    joint_full = np.array(anno['observation.state.joint_position'])
                     if joint_full.shape[1] >= 7:
                         gripper_state = joint_full[:, -1:]
                 car_action = np.concatenate([car_action, gripper_state], axis=1)
@@ -133,8 +133,8 @@ class agent():
             car_action = np.array(anno['states'])
         car_action = car_action[frames_ids]
 
-        if 'obs_state_jointpos' in anno:
-            joint_pos = np.array(anno['obs_state_jointpos'])
+        if 'observation.state.joint_position' in anno:
+            joint_pos = np.array(anno['observation.state.joint_position'])
             # If joint_pos is 7-dim, add a gripper column to make it 8-dim
             if joint_pos.shape[1] == 7:
                 gripper_state = joint_pos[:, -1:]  # Use last dim as gripper
@@ -161,7 +161,7 @@ class agent():
                 true_video = vr.get_batch(range(length)).asnumpy()
             except:
                 true_video = vr.get_batch(range(length)).numpy()
-            true_video = true_video[frames_ids]
+            # true_video = true_video[frames_ids]
             video_dict.append(true_video)
 
             # encode video
@@ -254,13 +254,13 @@ class agent():
         videos = videos.detach().to(torch.float32).cpu().numpy().transpose(0,1,3,4,2).astype(np.uint8)
 
         # concatenate true videos and video
-        
-        # (1, 5, 576, 320, 3) -> (3, 5, 192, 320, 3)
-        true_video = einops.rearrange(
-            true_video, 
-            '1 t (b h) w c -> b t h w c', 
-            b=3, h=192
-        )
+        # breakpoint()
+        # # (1, 5, 576, 320, 3) -> (3, 5, 192, 320, 3)
+        # true_video = einops.rearrange(
+        #     true_video, 
+        #     '1 t (b h) w c -> b t h w c', 
+        #     b=3, h=192
+        # )
        
         videos_cat = np.concatenate([true_video,videos],axis=-3) # (3, 8, 256, 256, 3)
         videos_cat = np.concatenate([video for video in videos_cat],axis=-2).astype(np.uint8) 
@@ -269,7 +269,7 @@ class agent():
 
         
 if __name__ == "__main__":
-    from droid_irom_highres_withtextcond import wm_args
+    from droid_inference_config import wm_args
     # from droid_irom_lowres_withtextcond import wm_args
     from argparse import ArgumentParser
     parser = ArgumentParser()
@@ -279,6 +279,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset_root_path', type=str, default=None)
     parser.add_argument('--dataset_meta_info_path', type=str, default=None)
     parser.add_argument('--dataset_names', type=str, default=None)
+    parser.add_argument('--task_name', type=str, default=None)
     parser.add_argument('--task_type', type=str, default='replay')
     parser.add_argument('--downsampled', action='store_true', help='If set, assumes input is already downsampled to 5Hz. Otherwise, assumes 15Hz input and downsamples by factor of 3.')
     args_new = parser.parse_args()
@@ -295,7 +296,7 @@ if __name__ == "__main__":
 
     # create rollout agent
     Agent = agent(args)
-    interact_num = args.interact_num
+    # interact_num is now calculated dynamically per trajectory based on video length
     pred_step = args.pred_step
     num_history = args.num_history
     num_frames = args.num_frames
@@ -303,8 +304,33 @@ if __name__ == "__main__":
 
 
     for val_id_i, text_i, start_idx_i in zip(args.val_id, args.instruction, args.start_idx):
+        # First, get the total trajectory length to determine interact_num dynamically
+        annotation_path = f"{args.val_dataset_dir}/annotation/val/{val_id_i}.json"
+        with open(annotation_path) as f:
+            anno = json.load(f)
+            # Handle new dataset format
+            if 'observation.state.cartesian_position' in anno:
+                total_length = len(anno['observation.state.cartesian_position'])
+            elif 'action' in anno:
+                total_length = len(anno['action'])
+            else:
+                total_length = anno["video_length"]
+
+        # Calculate the maximum number of frames available after start_idx and downsampling
+        downsample_factor = 1 if args.downsampled else 3
+        actual_skip = args.skip_step * downsample_factor
+        available_frames = (total_length - start_idx_i) // actual_skip
+
+        # Calculate interact_num dynamically: need history frames (8) + frames for predictions
+        # Each interaction advances by (pred_step - 1) frames
+        history_frames = 8
+        interact_num = max(1, (available_frames - history_frames) // (pred_step - 1) - 1)
+        
+        print(f"Trajectory {val_id_i}: total_length={total_length}, start_idx={start_idx_i}, "
+              f"available_frames={available_frames}, calculated interact_num={interact_num}")
+        
         # read ground truth trajectory informations
-        eef_gt, joint_pos_gt, video_dict, video_latents, instruction = Agent.get_traj_info(val_id_i, start_idx=start_idx_i, steps=int(pred_step*interact_num+8))
+        eef_gt, joint_pos_gt, video_dict, video_latents, instruction = Agent.get_traj_info(val_id_i, start_idx=start_idx_i, steps=int(pred_step*interact_num))
         text_i = instruction
         print("text_i:",instruction, "eef pose at t=0", eef_gt[0], "joint at t=0", joint_pos_gt[0])
 
