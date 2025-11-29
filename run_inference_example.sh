@@ -5,8 +5,11 @@
 
 # Path to your trained checkpoint
 # CKPT_PATH="/n/fs/tom-project/video_models/Ctrl-World/checkpoints/Ctrl-World/checkpoint-10000.pt"
-CKPT_PATH="/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/droid_irom_textcondtrue/checkpoint-2000.pt"
+# CKPT_PATH="/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/droid_irom_textcondtrue/checkpoint-2000.pt"
 # CKPT_PATH="/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/droid_irom_textcondfalse/checkpoint-8000.pt"
+
+# small lr
+CKPT_PATH="/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1127_droid_irom_finetune/checkpoint-2500.pt"
 
 
 # Paths to model components (should match training config)
@@ -22,7 +25,7 @@ python scripts/rollout_replay_traj.py \
     --svd_model_path "${SVD_MODEL_PATH}" \
     --clip_model_path "${CLIP_MODEL_PATH}" \
     --task_type replay \
-    --task_name ckpt2000
+    --task_name droid_irom_smalllr-ckpt2500
 
 # The results will be saved to:
 # synthetic_traj/Rollouts_replay/video/

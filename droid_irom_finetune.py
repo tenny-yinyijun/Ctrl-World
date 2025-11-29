@@ -6,6 +6,9 @@ from dataclasses import dataclass
 
 @dataclass
 class wm_args:
+    
+    config = None
+    
     ########################### training args ##############################
     # model paths
     svd_model_path = "/n/fs/tom-project/video_models/Ctrl-World/stable-video-diffusion-img2vid"
@@ -22,30 +25,39 @@ class wm_args:
     dataset_cfgs = dataset_names
     prob=[1.0]
     annotation_name='annotation' #'annotation_all_skip1'
-    num_workers=4
+    num_workers=8  # Per GPU - critical for multi-GPU training to avoid data loading bottleneck
     down_sample=3 # downsample 15hz to 5hz
     skip_step = 1
     
     # logs parameters
     debug = False
-    tag = f'1127_droid_irom_finetune-{dataset_names}'
+    tag = f'1126_full_finetune-v1'
     output_dir = f"model_ckpt/{tag}"
     wandb_run_name = tag
     wandb_project_name = "droid_example"
 
     # training parameters
-    learning_rate= 5e-7 #1e-5 # 5e-6
-    gradient_accumulation_steps = 8
+    learning_rate= 5e-7  # Higher LR to escape local optimum (for 90%→95% refinement)
+    gradient_accumulation_steps = 1  # Balanced for 8-GPU training
     mixed_precision = 'fp16'
-    train_batch_size = 1
+    train_batch_size = 1  # Increased to reduce data loading bottleneck and improve GPU utilization
     shuffle = True
     num_train_epochs = 100
     max_train_steps = 500000
+    logging_steps = 10  # Log training loss, LR, grad norm every N steps
     checkpointing_steps = 500
-    validation_steps = 500
-    max_grad_norm = 1.0
+    validation_steps = 1500
+    max_grad_norm = 1.0  # More permissive for refinement (was 5.0)
+    save_full_checkpoint = False  # If False, only saves LoRA adapters + action encoder (lightweight). If True, also saves full model state.
+
+    # Learning rate scheduler (important for stability!)
+    use_lr_scheduler = True
+    lr_scheduler_type = "cosine"  # Options: "linear", "cosine", "constant_with_warmup"
+    lr_warmup_steps = 100  # Short warmup for well-initialized model (was 1000)
+    lr_num_cycles = 0.5  # For cosine schedule: 0.5 means decay to 0 at end
+
     # for val
-    video_num= 4
+    video_num = 4
 
     ############################ model args ##############################
 
@@ -66,7 +78,16 @@ class wm_args:
     his_cond_zero = False
     dtype = torch.bfloat16 # [torch.float32, torch.bfloat16] # during inference, we can use bfloat16 to accelerate the inference speed and save memory
 
-
+    ############################ LoRA args ##############################
+    # LoRA fine-tuning parameters (optimized for 90%→95% refinement)
+    use_lora = False  # Set to True to enable LoRA fine-tuning
+    lora_rank = 8  # Higher rank for capturing subtle improvements (was 16, too constrained)
+    lora_alpha = 8  # LoRA scaling = rank for 1x scaling
+    lora_dropout = 0.0  # No dropout for refinement (was 0.05)
+    lora_target_modules = ["to_q", "to_k", "to_v", "to_out.0", "ff.net.0.proj", "ff.net.2"]  # Attention + FFN for max capacity
+    # Options: ["to_q", "to_k", "to_v", "to_out.0"] for attention only (recommended)
+    #          ["to_q", "to_k", "to_v", "to_out.0", "ff.net.0.proj", "ff.net.2"] for attention + FFN (more params)
+    train_action_encoder = True  # Whether to train action_encoder (recommended: True, it's small and task-specific)
 
     ########################### rollout args ############################
     # policy

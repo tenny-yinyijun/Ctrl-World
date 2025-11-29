@@ -59,12 +59,51 @@ class agent():
         #     raise ValueError(f"Unknown policy type: {args.policy_type}")
         # self.policy = policy_config.create_trained_policy(config, checkpoint_dir)
 
-        # load ctrl-world model        
+        # load ctrl-world model
         self.model = CrtlWorld(args)
-        self.model.load_state_dict(torch.load(args.val_model_path))
+
+        # Load checkpoint - handle both LoRA and full checkpoints
+        print(f"Loading checkpoint from {args.val_model_path}")
+        if hasattr(args, 'use_lora') and args.use_lora:
+            # LoRA mode: check if loading LoRA-only adapters or full checkpoint
+            if os.path.isdir(args.val_model_path):
+                # Loading LoRA-only adapters from directory
+                print("Loading LoRA adapters from directory...")
+                from peft import PeftModel
+                self.model.unet = PeftModel.from_pretrained(
+                    self.model.unet,
+                    args.val_model_path,
+                    is_trainable=False
+                )
+                print("LoRA adapters loaded successfully")
+
+                # Check if action encoder weights exist and load them
+                action_encoder_path = os.path.join(args.val_model_path, "action_encoder.pt")
+                if os.path.exists(action_encoder_path):
+                    print(f"Loading action encoder from {action_encoder_path}")
+                    action_encoder_state = torch.load(action_encoder_path, map_location='cpu')
+                    self.model.action_encoder.load_state_dict(action_encoder_state)
+                    print("Action encoder loaded successfully")
+                else:
+                    print("No action_encoder.pt found in LoRA directory - using initialized weights")
+            else:
+                # Loading full checkpoint (.pt file)
+                state_dict = torch.load(args.val_model_path, map_location='cpu')
+                if any('lora' in k for k in state_dict.keys()):
+                    print("Loading full checkpoint with LoRA weights...")
+                    self.model.load_state_dict(state_dict, strict=True)
+                else:
+                    print("Warning: Loading non-LoRA checkpoint into LoRA model...")
+                    missing, unexpected = self.model.load_state_dict(state_dict, strict=False)
+                    print(f"Missing keys: {len(missing)}, Unexpected keys: {len(unexpected)}")
+        else:
+            # Full fine-tuning mode: standard loading
+            state_dict = torch.load(args.val_model_path, map_location='cpu')
+            self.model.load_state_dict(state_dict, strict=True)
+
         self.model.to(self.accelerator.device).to(self.dtype)
         self.model.eval()
-        print("load world model success")
+        print("World model loaded successfully")
         with open(f"{args.data_stat_path}", 'r') as f:
             data_stat = json.load(f)
             self.state_p01 = np.array(data_stat['state_01'])[None,:]
@@ -116,18 +155,15 @@ class agent():
         else:
             instruction = ""
 
-        # Handle new dataset format with obs_state_cart and obs_state_jointpos
         if 'observation.state.cartesian_position' in anno:
             car_action = np.array(anno['observation.state.cartesian_position'])
             # obs_state_cart is 6-dim (xyz + rotation), need to add gripper state
             # Add a column of zeros for gripper (or use obs_state_jointpos[-1] if available)
             if car_action.shape[1] == 6:
                 gripper_state = np.zeros((len(car_action), 1))
-                if 'observation.state.joint_position' in anno:
-                    # Use the last dimension of obs_state_jointpos as gripper
-                    joint_full = np.array(anno['observation.state.joint_position'])
-                    if joint_full.shape[1] >= 7:
-                        gripper_state = joint_full[:, -1:]
+                if 'observation.state.gripper_position' in anno:
+                    # Use gripper_position as gripper
+                    gripper_state = np.array(anno['observation.state.gripper_position'])[frames_ids]
                 car_action = np.concatenate([car_action, gripper_state], axis=1)
         else:
             car_action = np.array(anno['states'])

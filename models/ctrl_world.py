@@ -120,17 +120,52 @@ class CrtlWorld(nn.Module):
         unet = UNetSpatioTemporalConditionModel()
         unet.load_state_dict(self.pipeline.unet.state_dict(), strict=False)
         self.pipeline.unet = unet
-        
+
         self.unet = self.pipeline.unet
         self.vae = self.pipeline.vae
         self.image_encoder = self.pipeline.image_encoder
         self.scheduler = self.pipeline.scheduler
 
-        # freeze vae, image_encoder, enable unet gradient ckpt
+        # freeze vae, image_encoder
         self.vae.requires_grad_(False)
         self.image_encoder.requires_grad_(False)
-        self.unet.requires_grad_(True)
-        self.unet.enable_gradient_checkpointing()
+
+        # Apply LoRA to UNet if enabled
+        if hasattr(args, 'use_lora') and args.use_lora:
+            print(f"\n{'='*60}")
+            print(f"Initializing LoRA fine-tuning for UNet")
+            print(f"  LoRA rank: {args.lora_rank}")
+            print(f"  LoRA alpha: {args.lora_alpha}")
+            print(f"  LoRA dropout: {args.lora_dropout}")
+            print(f"  Target modules: {args.lora_target_modules}")
+            print(f"{'='*60}\n")
+
+            from peft import LoraConfig, get_peft_model
+
+            lora_config = LoraConfig(
+                r=args.lora_rank,
+                lora_alpha=args.lora_alpha,
+                target_modules=args.lora_target_modules,
+                lora_dropout=args.lora_dropout,
+                bias="none",
+            )
+
+            self.unet = get_peft_model(self.unet, lora_config)
+            self.pipeline.unet = self.unet
+
+            # Print trainable parameters
+            print("UNet trainable parameters after LoRA:")
+            self.unet.print_trainable_parameters()
+            print()
+        else:
+            # Full fine-tuning mode
+            print("\nUsing FULL fine-tuning mode (not LoRA)")
+            self.unet.requires_grad_(True)
+
+        # Enable gradient checkpointing for memory efficiency
+        # commented out for lora
+        if hasattr(self.unet, 'enable_gradient_checkpointing'):
+            self.unet.enable_gradient_checkpointing()
 
         # SVD is a img2video model, load a clip text encoder
         from transformers import AutoTokenizer, CLIPTextModelWithProjection
@@ -140,6 +175,13 @@ class CrtlWorld(nn.Module):
 
         # initialize an action projector
         self.action_encoder = Action_encoder2(action_dim=args.action_dim, action_num=int(args.num_history+args.num_frames), hidden_size=1024, text_cond=args.text_cond)
+
+        # Control whether action_encoder is trainable
+        if hasattr(args, 'train_action_encoder') and not args.train_action_encoder:
+            print("Freezing action_encoder")
+            self.action_encoder.requires_grad_(False)
+        else:
+            print("Training action_encoder (fully trainable)")
 
     
 
