@@ -1,9 +1,13 @@
 *__pycache__*
 checkpoints/
+.claude/
 clip-vit-base-patch32/
 wandb*
 swanlog*
 dataset_example/
+dataset_eval_samples/
+dataset_eval_tsne/
+dataset_eval_metrics/
 dataset_eval/
 dataset_meta_info/
 stable-video-diffusion-img2vid/
@@ -11,6 +15,8 @@ output*
 dataset_example/merge.py
 predictions*
 synthetic_traj_old*
+logs/
+tsne_plots/
 old_files*
 video_models_logs*
 model_ckpt*
