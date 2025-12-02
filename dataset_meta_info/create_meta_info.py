@@ -121,3 +121,6 @@ if __name__ == "__main__":
         with open(f'dataset_meta_info/{dataset_name}/{data_type}_sample.json', 'w') as f:
             json.dump(samples_all, f, indent=4)
         
+    # copy stat.json file to dataset_meta_info/{dataset_name}/stat.json
+    import shutil
+    shutil.copyfile("/n/fs/tom-project/video_models/Ctrl-World/dataset_meta_info/droid/stat.json", f'dataset_meta_info/{dataset_name}/stat.json')

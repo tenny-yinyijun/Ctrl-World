@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Rollout script that processes an entire dataset for trajectory replay.
-Similar to rollout_replay_traj.py but iterates through all trajectories in a dataset.
+Uniform sampling version of rollout_replay_dataset_sample_parallel.py
+Samples trajectories uniformly with specified spacing instead of random sampling.
+Supports multi-GPU parallel processing where each GPU processes a subset of trajectories.
 """
 
 import numpy as np
@@ -41,57 +42,15 @@ class agent():
             if os.path.isdir(args.val_model_path):
                 # Loading LoRA-only adapters from directory
                 print("Loading LoRA adapters from directory...")
+                from peft import PeftModel
+                self.model.unet = PeftModel.from_pretrained(
+                    self.model.unet,
+                    args.val_model_path,
+                    is_trainable=False
+                )
+                print("LoRA adapters loaded successfully")
 
-                # IMPORTANT: LoRA adapters are deltas on top of a base checkpoint!
-                # We must load the base checkpoint first, then apply LoRA adapters
-
-                # Step 1: Load base checkpoint if specified
-                if hasattr(args, 'base_ckpt_path') and args.base_ckpt_path is not None:
-                    print(f"Loading base checkpoint from {args.base_ckpt_path}")
-                    base_state_dict = torch.load(args.base_ckpt_path, map_location='cpu')
-
-                    # Remap keys for PEFT LoRA compatibility (same as training script)
-                    print("Remapping UNet keys for PEFT LoRA compatibility...")
-                    from peft import LoraConfig
-                    lora_target_modules = args.lora_target_modules
-
-                    remapped_state_dict = {}
-                    for key, value in base_state_dict.items():
-                        if key.startswith('unet.'):
-                            # Remove 'unet.' prefix
-                            new_key = key[5:]  # "unet.down_blocks.0..." -> "down_blocks.0..."
-
-                            # Check if this is a LoRA-targeted module
-                            is_lora_target = any(target in new_key for target in lora_target_modules)
-
-                            if is_lora_target and (new_key.endswith('.weight') or new_key.endswith('.bias')):
-                                # Add base_model.model prefix and .base_layer
-                                parts = new_key.rsplit('.', 1)  # Split at last dot
-                                new_key = f"base_model.model.{parts[0]}.base_layer.{parts[1]}"
-                            else:
-                                # Just add base_model.model prefix
-                                new_key = f"base_model.model.{new_key}"
-
-                            remapped_state_dict[f"unet.{new_key}"] = value
-                        else:
-                            # Keep other keys as-is (action_encoder, etc.)
-                            remapped_state_dict[key] = value
-
-                    # Load the remapped base checkpoint
-                    missing, unexpected = self.model.load_state_dict(remapped_state_dict, strict=False)
-                    print(f"Base checkpoint loaded: {len(missing)} missing keys (LoRA adapters, expected), {len(unexpected)} unexpected keys")
-                else:
-                    print("WARNING: No base_ckpt_path specified! LoRA adapters need a base checkpoint to work correctly.")
-                    print("         The model will use fresh SVD initialization, which may produce incorrect results.")
-
-                # Step 2: Load LoRA adapters on top of base checkpoint
-                adapter_name = "loaded_adapter"
-                self.model.unet.load_adapter(args.val_model_path, adapter_name=adapter_name)
-                self.model.unet.set_adapter(adapter_name)
-                print(f"LoRA adapters loaded and activated successfully: {adapter_name}")
-                print(f"Active adapters: {self.model.unet.active_adapters}")
-
-                # Step 3: Load action encoder weights
+                # Check if action encoder weights exist and load them
                 action_encoder_path = os.path.join(args.val_model_path, "action_encoder.pt")
                 if os.path.exists(action_encoder_path):
                     print(f"Loading action encoder from {action_encoder_path}")
@@ -163,7 +122,7 @@ class agent():
         actual_skip = skip * downsample_factor
 
         frames_ids = np.arange(start_idx, start_idx + num_frames * actual_skip, actual_skip)
-        
+
         # downsample action
         # length = length // actual_skip
         print(f"Original trajectory length: {length}")
@@ -214,7 +173,6 @@ class agent():
         for video_path in video_paths:
             # load videos from all views
             vr = VideoReader(video_path, ctx=cpu(0), num_threads=2)
-            print("length of video:", len(vr))
             try:
                 true_video = vr.get_batch(range(length)).asnumpy()
             except:
@@ -338,97 +296,94 @@ class agent():
                         # Assign the annotated frame back
                         videos[view_idx, frame_idx] = frame
 
-        # concatenate true videos and video
-        videos_cat = np.concatenate([true_video, videos], axis=-3)  # (3, 8, 256, 256, 3)
-        videos_cat = np.concatenate([video for video in videos_cat], axis=-2).astype(np.uint8)
-
-        return videos_cat, true_video, videos, latents  # np.uint8:(3, 8, 128, 256, 3) or (3, 8, 192, 320, 3)
+        # Return separate GT and pred videos (not concatenated)
+        return true_video, videos, latents  # true_video: (3, pred_step, H, W, 3), videos: (3, pred_step, H, W, 3)
 
 
-def process_single_trajectory(Agent, val_id_i, start_idx_i, interact_num, pred_step, args):
-    """Process a single trajectory and return the rollout video."""
+def process_single_sample(Agent, val_id_i, start_pos, sample_id, pred_step, args):
+    """Process a single sample (one interaction) from a trajectory.
+
+    Args:
+        Agent: The agent object
+        val_id_i: Trajectory ID
+        start_pos: Starting frame position for this sample
+        sample_id: Sample ID (chronologically ordered)
+        pred_step: Number of frames to predict
+        args: Arguments
+
+    Returns:
+        true_video: Ground truth video (3, pred_step, H, W, 3)
+        pred_video: Predicted video (3, pred_step, H, W, 3)
+        instruction: Text instruction (if any)
+    """
     num_history = args.num_history
     num_frames = args.num_frames
 
-    print(f"\n{'='*80}")
-    print(f"Processing trajectory {val_id_i}")
-    print(f"{'='*80}")
+    print(f"\n--- Processing sample {sample_id} starting at frame {start_pos} ---")
 
-    # read ground truth trajectory informations
+    # Load ground truth trajectory from beginning to sample end
+    # We need frames from 0 to start_pos + pred_step for building history and the sample itself
+    total_frames_needed = start_pos + pred_step
     eef_gt, joint_pos_gt, _, video_latents, instruction = Agent.get_traj_info(
-        val_id_i, start_idx=start_idx_i, steps=int(pred_step*interact_num)
+        val_id_i, start_idx=0, steps=total_frames_needed
     )
-    text_i = instruction
-    print("Instruction:", instruction)
-    print("EEF pose at t=0:", eef_gt[0])
-    print("Joint at t=0:", joint_pos_gt[0])
 
-    # create buffers and push first frames to history buffer
-    video_to_save = []
+    # Build history buffer from ground truth
     his_cond = []
-    his_joint = []
     his_eef = []
+
+    # Get the latent at start_pos - 1 (or 0 if start_pos is 0)
+    current_frame_idx = max(0, start_pos - 1)
     first_latent = torch.cat([v[0] for v in video_latents], dim=1).unsqueeze(0)  # (1, 4, 72, 40)
-    assert first_latent.shape == (1, 4, 72, 40), f"Expected first_latent shape (1, 4, 72, 40), got {first_latent.shape}"
-    for i in range(Agent.args.num_history*4):
-        his_cond.append(first_latent)  # (1, 4, 72, 40)
-        his_joint.append(joint_pos_gt[0:1])  # (1, 7)
-        his_eef.append(eef_gt[0:1])  # (1, 7)
+    current_latent = torch.cat([v[current_frame_idx] for v in video_latents], dim=1).unsqueeze(0)  # (1, 4, 72, 40)
 
-    # interact loop
-    for i in range(interact_num):
-        # ground truth video
-        start_id = int(i*(pred_step-1))
-        end_id = start_id + pred_step
-        video_latent_true = [v[start_id:end_id] for v in video_latents]
+    # Build history using indices [0, 0, -16, -12, -8, -4] relative to current position
+    # For start_pos < 16, we need to pad with the first frame
+    history_idx = [0, 0, -16, -12, -8, -4]
+    his_pose_list = []
+    his_cond_list = []
 
-        # prepare input for policy
-        joint_first = his_joint[-1][0]
-        state_first = his_eef[-1][0]
-        assert joint_first.shape == (8,), f"Expected joint_first shape (8,), got {joint_first.shape}"
-        assert state_first.shape == (7,), f"Expected state_first shape (7,), got {state_first.shape}"
-
-        # forward policy
-        print(f"\n--- Interaction step: {i+1}/{interact_num} ---")
-        # in the trajectory replay model, we use action recorded in trajectory
-        cartesian_pose = eef_gt[start_id:end_id]  # (pred_step, 7)
-        print("Cartesian action (first):", cartesian_pose[0])
-        print("Cartesian action (last):", cartesian_pose[-1])
-
-        # retrieve history cond and action cond
-        history_idx = [0, 0, -8, -6, -4, -2]
-        his_pose = np.concatenate([his_eef[idx] for idx in history_idx], axis=0)  # (4, 7)
-        action_cond = np.concatenate([his_pose, cartesian_pose], axis=0)
-        his_cond_input = torch.cat([his_cond[idx] for idx in history_idx], dim=0).unsqueeze(0)
-        current_latent = his_cond[-1]  # (1, 4, 72, 40)
-        assert current_latent.shape == (1, 4, 72, 40), f"Expected current_latent shape (1, 4, 72, 40), got {current_latent.shape}"
-        assert action_cond.shape == (int(num_history+num_frames), 7), f"Expected action_cond shape ({int(num_history+num_frames)}, 7), got {action_cond.shape}"
-        assert his_cond_input.shape == (1, int(num_history), 4, 72, 40), f"Expected his_cond_input shape (1, {int(num_history)}, 72, 40), got {his_cond_input.shape}"
-
-        # forward world model
-        videos_cat, _, _, predicted_latents = Agent.forward_wm(
-            action_cond, video_latent_true, current_latent,
-            his_cond=his_cond_input,
-            text=text_i if Agent.args.text_cond else None
-        )
-
-        # push current step to history buffer
-        his_eef.append(cartesian_pose[pred_step-1:pred_step])  #(1,7)
-        his_cond.append(torch.cat([v[pred_step-1] for v in predicted_latents], dim=1).unsqueeze(0))  # (1, 4, 72, 40)
-        if i == interact_num - 1:
-            video_to_save.append(videos_cat)  # save all frames for the last interaction step
+    for idx in history_idx:
+        if idx == 0:
+            # Always use frame 0
+            frame_idx = 0
         else:
-            video_to_save.append(videos_cat[:pred_step-1])  # last frame is the first frame of next step, so we remove it here
+            # Negative index relative to current position
+            frame_idx = max(0, start_pos + idx)  # Clamp to 0 if goes negative
 
-    # concatenate all video segments
-    video = np.concatenate(video_to_save, axis=0)
+        his_pose_list.append(eef_gt[frame_idx:frame_idx+1])  # (1, 7)
+        his_cond_list.append(torch.cat([v[frame_idx] for v in video_latents], dim=1).unsqueeze(0))  # (1, 4, 72, 40)
 
-    return video, instruction
+    his_pose = np.concatenate(his_pose_list, axis=0)  # (6, 7)
+    his_cond_input = torch.cat(his_cond_list, dim=0).unsqueeze(0)  # (1, 6, 4, 72, 40)
+
+    # Get the action for this sample
+    cartesian_pose = eef_gt[start_pos:start_pos + pred_step]  # (pred_step, 7)
+    action_cond = np.concatenate([his_pose, cartesian_pose], axis=0)  # (6 + pred_step, 7)
+
+    # Get ground truth video latents for this sample
+    video_latent_true = [v[start_pos:start_pos + pred_step] for v in video_latents]
+
+    print(f"Cartesian action (first): {cartesian_pose[0]}")
+    print(f"Cartesian action (last): {cartesian_pose[-1]}")
+
+    # Assertions
+    assert current_latent.shape == (1, 4, 72, 40), f"Expected current_latent shape (1, 4, 72, 40), got {current_latent.shape}"
+    assert action_cond.shape == (int(num_history + num_frames), 7), f"Expected action_cond shape ({int(num_history + num_frames)}, 7), got {action_cond.shape}"
+    assert his_cond_input.shape == (1, int(num_history), 4, 72, 40), f"Expected his_cond_input shape (1, {int(num_history)}, 4, 72, 40), got {his_cond_input.shape}"
+
+    # Forward world model
+    true_video, pred_video, predicted_latents = Agent.forward_wm(
+        action_cond, video_latent_true, current_latent,
+        his_cond=his_cond_input,
+        text=instruction if Agent.args.text_cond else None
+    )
+
+    return true_video, pred_video, instruction
 
 
 if __name__ == "__main__":
-    # from droid_inference_config import wm_args
-    from droid_inference_config_lora import wm_args
+    from droid_inference_config import wm_args
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
@@ -443,8 +398,12 @@ if __name__ == "__main__":
     parser.add_argument('--downsampled', action='store_true', help='If set, assumes input is already downsampled to 5Hz. Otherwise, assumes 15Hz input and downsamples by factor of 3.')
     parser.add_argument('--start_idx', type=int, default=0, help='Starting frame index for each trajectory')
     parser.add_argument('--max_trajectories', type=int, default=None, help='Maximum number of trajectories to process (for debugging)')
-    parser.add_argument('--model_index', type=int, default=None, help='Model index for video directory naming (e.g., 0 for video_0/). If not provided, will auto-assign based on models.txt')
+    # parser.add_argument('--model_index', type=int, default=None, help='Model index for video directory naming (e.g., 0 for video_0/). If not provided, will auto-assign based on models.txt')
     parser.add_argument('--gripper_annotation', action='store_true', help='If set, annotates gripper state values on video frames')
+    parser.add_argument('--sample_spacing', type=int, required=True, help='Frame spacing for uniform sampling (e.g., 8 means sample every 8 frames)')
+    parser.add_argument('--eval_base_dir', type=str, default="/n/fs/tom-project/video_models/Ctrl-World/dataset_eval_samples", help='Base directory for evaluation outputs')
+    parser.add_argument('--gpu_id', type=int, default=None, help='GPU ID for parallel processing (processes trajectories where traj_idx %% num_gpus == gpu_id)')
+    parser.add_argument('--num_gpus', type=int, default=1, help='Total number of GPUs for parallel processing')
     args_new = parser.parse_args()
 
     args = wm_args(task_type=args_new.task_type)
@@ -457,6 +416,11 @@ if __name__ == "__main__":
 
     args = merge_args(args, args_new)
     args.__dict__['gripper_annotation'] = args_new.gripper_annotation
+    args.__dict__['sample_spacing'] = args_new.sample_spacing
+    args.__dict__['eval_base_dir'] = args_new.eval_base_dir
+    args.__dict__['gpu_id'] = args_new.gpu_id
+    args.__dict__['num_gpus'] = args_new.num_gpus
+    # args.__dict__['model_index'] = args_new.model_index
 
     # Set val_dataset_dir to the specified dataset directory
     args.val_dataset_dir = args.dataset_dir
@@ -465,43 +429,49 @@ if __name__ == "__main__":
     dataset_name = os.path.basename(os.path.normpath(args.dataset_dir))
 
     # Setup evaluation directory structure
-    eval_base_dir = "/n/fs/tom-project/video_models/Ctrl-World/dataset_eval"
+    eval_base_dir = args.eval_base_dir
     dataset_eval_dir = os.path.join(eval_base_dir, dataset_name)
     os.makedirs(dataset_eval_dir, exist_ok=True)
 
     models_txt_path = os.path.join(dataset_eval_dir, "models.txt")
 
-    # Determine model index and update models.txt
-    if args.model_index is None:
-        # Auto-assign model index based on models.txt
-        if os.path.exists(models_txt_path):
-            with open(models_txt_path, 'r') as f:
-                lines = f.readlines()
-                if lines:
-                    last_line = lines[-1].strip()
-                    if last_line:
-                        args.model_index = int(last_line.split(':')[0]) + 1
-                    else:
-                        args.model_index = 0
-                else:
-                    args.model_index = 0
-        else:
-            args.model_index = 0
+    # Determine model index and update models.txt (only GPU 0 should do this)
+    # if args.model_index is None:
+    #     # Auto-assign model index based on models.txt
+    #     if os.path.exists(models_txt_path):
+    #         with open(models_txt_path, 'r') as f:
+    #             lines = f.readlines()
+    #             if lines:
+    #                 last_line = lines[-1].strip()
+    #                 if last_line:
+    #                     args.model_index = int(last_line.split(':')[0]) + 1
+    #                 else:
+    #                     args.model_index = 0
+    #             else:
+    #                 args.model_index = 0
+    #     else:
+    #         args.model_index = 0
 
-    # Update models.txt with this checkpoint
-    with open(models_txt_path, 'a') as f:
-        f.write(f"{args.model_index}: {args.ckpt_path}\n")
+    # Update models.txt with this checkpoint (only GPU 0 should do this to avoid race conditions)
+    # if args.gpu_id is None or args.gpu_id == 0:
+    #     with open(models_txt_path, 'a') as f:
+    #         f.write(f"{args.model_index}: {args.ckpt_path}\n")
 
     # Create video output directory
-    video_dir = os.path.join(dataset_eval_dir, f"video_{args.model_index}")
+    # video_dir = os.path.join(dataset_eval_dir, f"video_{args.model_index}")
+    video_dir = os.path.join(dataset_eval_dir, f"videos")
     os.makedirs(video_dir, exist_ok=True)
 
     print(f"\nEvaluation setup:")
     print(f"  Dataset: {dataset_name}")
-    print(f"  Model index: {args.model_index}")
+    # print(f"  Model index: {args.model_index}")
     print(f"  Checkpoint: {args.ckpt_path}")
     print(f"  Output directory: {video_dir}")
     print(f"  Models registry: {models_txt_path}")
+    print(f"  Eval base directory: {eval_base_dir}")
+    print(f"  Sample spacing: {args.sample_spacing} frames")
+    if args.gpu_id is not None:
+        print(f"  GPU ID: {args.gpu_id}/{args.num_gpus}")
 
     # Find all trajectories in the dataset (both train and val)
     annotation_files = []
@@ -517,12 +487,19 @@ if __name__ == "__main__":
     # Sort by trajectory ID (convert to int for proper sorting)
     annotation_files.sort(key=lambda x: int(x[1]))
 
-    # Limit trajectories if max_trajectories is set
-    # if args.max_trajectories is not None:
-    #     annotation_files = annotation_files[:args.max_trajectories]
-
-    print(f"\nFound {len(annotation_files)} trajectories to process")
-    print(f"Trajectory IDs: {[traj_id for _, traj_id in annotation_files]}")
+    # Filter trajectories based on GPU ID
+    if args.gpu_id is not None:
+        total_trajectories = len(annotation_files)
+        filtered_annotation_files = []
+        for traj_idx, (split, traj_id) in enumerate(annotation_files):
+            if traj_idx % args.num_gpus == args.gpu_id:
+                filtered_annotation_files.append((split, traj_id))
+        annotation_files = filtered_annotation_files
+        print(f"\nGPU {args.gpu_id} processing {len(annotation_files)}/{total_trajectories} trajectories")
+        print(f"Trajectory IDs: {[traj_id for _, traj_id in annotation_files]}")
+    else:
+        print(f"\nFound {len(annotation_files)} trajectories to process")
+        print(f"Trajectory IDs: {[traj_id for _, traj_id in annotation_files]}")
 
     # Create rollout agent
     Agent = agent(args)
@@ -536,9 +513,13 @@ if __name__ == "__main__":
     failed_count = 0
     failed_trajectories = []
 
-    for split, val_id_i in tqdm(annotation_files, desc="Processing trajectories"):
+    for split, val_id_i in tqdm(annotation_files, desc=f"Processing trajectories (GPU {args.gpu_id if args.gpu_id is not None else 'N/A'})"):
         try:
-            # First, get the total trajectory length to determine interact_num dynamically
+            print(f"\n{'='*80}")
+            print(f"Processing trajectory {val_id_i}")
+            print(f"{'='*80}")
+
+            # Get the total trajectory length
             annotation_path = f"{args.val_dataset_dir}/annotation/{split}/{val_id_i}.json"
             with open(annotation_path) as f:
                 anno = json.load(f)
@@ -550,28 +531,60 @@ if __name__ == "__main__":
                 else:
                     total_length = anno["video_length"]
 
-            # Calculate the maximum number of frames available after start_idx and downsampling
+            # Calculate the number of frames available after downsampling
             downsample_factor = 1 if args.downsampled else 3
             actual_skip = args.skip_step * downsample_factor
             available_frames = (total_length - args.start_idx) // actual_skip
 
-            # Calculate interact_num dynamically: need history frames (8) + frames for predictions
-            # Each interaction advances by (pred_step - 1) frames
-            history_frames = 8
-            interact_num = max(1, (available_frames - history_frames - 1) // (pred_step - 1) - 1)
+            # Calculate uniformly sampled starting positions
+            # Starting positions: 0, sample_spacing, 2*sample_spacing, ...
+            max_start_pos = available_frames - pred_step
+            if max_start_pos < 0:
+                print(f"Trajectory {val_id_i} is too short (available_frames={available_frames}, pred_step={pred_step}). Skipping.")
+                continue
 
-            print(f"\nTrajectory {val_id_i} ({split}): total_length={total_length}, start_idx={args.start_idx}, "
-                  f"available_frames={available_frames}, calculated interact_num={interact_num}")
+            # Uniform sampling with spacing
+            sampled_positions = list(range(0, max_start_pos + 1, args.sample_spacing))
+            num_samples_to_take = len(sampled_positions)
 
-            # Process the trajectory
-            video, instruction = process_single_trajectory(
-                Agent, val_id_i, args.start_idx, interact_num, pred_step, args
-            )
+            if num_samples_to_take == 0:
+                print(f"Trajectory {val_id_i} is too short for the given sample spacing. Skipping.")
+                continue
 
-            # Save the video with simple naming: {traj_id}.mp4
-            filename_video = os.path.join(video_dir, f"{val_id_i}.mp4")
-            mediapy.write_video(filename_video, video, fps=4)
-            print(f"Saved video to {filename_video}")
+            print(f"Trajectory {val_id_i} ({split}): total_length={total_length}, available_frames={available_frames}")
+            print(f"Uniformly sampled {num_samples_to_take} positions with spacing {args.sample_spacing}: {sampled_positions}")
+
+            # Create output directory for this trajectory
+            traj_output_dir = os.path.join(video_dir, val_id_i)
+            gt_dir = os.path.join(traj_output_dir, "groundtruth")
+            pred_dir = os.path.join(traj_output_dir, "prediction")
+            os.makedirs(gt_dir, exist_ok=True)
+            os.makedirs(pred_dir, exist_ok=True)
+
+            # Process each sampled position
+            for sample_id, start_pos in enumerate(sampled_positions):
+                true_video, pred_video, instruction = process_single_sample(
+                    Agent, val_id_i, start_pos, sample_id, pred_step, args
+                )
+
+                # true_video and pred_video have shape (3, pred_step, H, W, 3)
+                # where the first dimension is the view (0=left, 1=right, 2=wrist)
+
+                # Save each view separately
+                for view_id in range(3):
+                    # Extract frames for this view
+                    gt_frames = true_video[view_id]  # (pred_step, H, W, 3)
+                    pred_frames = pred_video[view_id]  # (pred_step, H, W, 3)
+
+                    # Save GT video
+                    gt_filename = os.path.join(gt_dir, f"{sample_id}_view{view_id}.mp4")
+                    mediapy.write_video(gt_filename, gt_frames, fps=5)
+
+                    # Save prediction video
+                    pred_filename = os.path.join(pred_dir, f"{sample_id}_view{view_id}.mp4")
+                    mediapy.write_video(pred_filename, pred_frames, fps=5)
+
+                print(f"Saved sample {sample_id} (start_pos={start_pos}) to {traj_output_dir}")
 
             successful_count += 1
 
@@ -585,7 +598,7 @@ if __name__ == "__main__":
 
     # Print summary
     print(f"\n{'='*80}")
-    print(f"PROCESSING COMPLETE")
+    print(f"PROCESSING COMPLETE (GPU {args.gpu_id if args.gpu_id is not None else 'N/A'})")
     print(f"{'='*80}")
     print(f"Successfully processed: {successful_count}/{len(annotation_files)}")
     print(f"Failed: {failed_count}/{len(annotation_files)}")

@@ -1,0 +1,21 @@
+{
+  "_comment": "Model registry for evaluation inference pipeline",
+  "_instructions": "Add your models here. Each model needs an alias, mode (full/lora), and checkpoint_path.",
+
+  "example_full_model": {
+    "alias": "example_full_model",
+    "mode": "full",
+    "checkpoint_path": "/path/to/checkpoint.pt",
+    "description": "Example full fine-tuned model",
+    "created_date": "2024-01-15"
+  },
+
+  "example_lora_model": {
+    "alias": "example_lora_model",
+    "mode": "lora",
+    "checkpoint_path": "/path/to/lora_adapters/",
+    "base_checkpoint_path": "/path/to/base_checkpoint.pt",
+    "description": "Example LoRA fine-tuned model (lora_target_modules will use config default)",
+    "created_date": "2024-02-01"
+  }
+}

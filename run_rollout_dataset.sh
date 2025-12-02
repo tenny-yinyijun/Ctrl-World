@@ -10,7 +10,7 @@ CKPT_PATH="path/to/your/checkpoint.pt"
 DATASET_DIR="dataset_example/irom_1126_base2"
 
 # Optional: Model index (if not specified, will auto-assign based on models.txt)
-# MODEL_INDEX=0
+MODEL_INDEX=2
 
 # Optional: limit number of trajectories (useful for debugging)
 # MAX_TRAJECTORIES=5
@@ -20,7 +20,7 @@ python scripts/rollout_replay_dataset.py \
     --dataset_dir ${DATASET_DIR} \
     --start_idx 0 \
     --downsampled \
-    # --model_index ${MODEL_INDEX} \  # Uncomment to specify model index
+    --model_index ${MODEL_INDEX} \  # Uncomment to specify model index
     # --max_trajectories ${MAX_TRAJECTORIES}  # Uncomment to limit trajectories
 
 # Output will be saved to:

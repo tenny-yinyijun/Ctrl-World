@@ -18,11 +18,31 @@ cd /n/fs/tom-project/video_models/Ctrl-World
 
 conda activate ctrl-world
 
+DATASET_DIR="dataset_example/irom_1126_base2"
+
 # Model checkpoint path
-CKPT_PATH="/n/fs/tom-project/video_models/Ctrl-World/checkpoints/Ctrl-World/checkpoint-10000.pt"
+# CKPT_PATH="/n/fs/tom-project/video_models/Ctrl-World/checkpoints/Ctrl-World/checkpoint-10000.pt"
+
+
+# full-finetune
+CKPT_PATH="/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1126_full_finetune-v1-irom_play+irom_1126_play/checkpoint-5000.pt"
+MODEL_INDEX=10
+
+CKPT_PATH="/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1126_full_finetune-v1-irom_play+irom_1126_play/checkpoint-15000.pt"
+MODEL_INDEX=11
+
+CKPT_PATH="/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1126_full_finetune-v1-irom_play+irom_1126_play/checkpoint-25000.pt"
+MODEL_INDEX=12
+
+# lora
+CKPT_PATH="/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1128_finetune-lora-v1-irom_play+irom_1126_play/lora_only-5000"
+MODEL_INDEX=2
+
+CKPT_PATH="/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1128_finetune-lora-v1-irom_play+irom_1126_play/lora_only-18000"
+MODEL_INDEX=3
 
 # Dataset directory
-DATASET_DIR="dataset_example/irom_1126_base2"
+# DATASET_DIR="dataset_example/irom_1126_base2"
 # DATASET_DIR="dataset_example/irom_1126_play"
 # DATASET_DIR="dataset_example/irom_play"
 

@@ -527,6 +527,8 @@ if __name__ == "__main__":
     parser.add_argument('--dataset_meta_info_path', type=str, default=None)
     # dataset_names
     parser.add_argument('--dataset_names', type=str, default=None)
+    # tag
+    parser.add_argument('--tag', type=str, default=None)
     args_new = parser.parse_args()
     
     if args_new.config == "droid_irom_finetune_lora":

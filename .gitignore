@@ -10,6 +10,7 @@ dataset_eval_tsne/
 dataset_eval_metrics/
 dataset_eval/
 dataset_meta_info/
+detector*/
 stable-video-diffusion-img2vid/
 output*
 dataset_example/merge.py
@@ -17,6 +18,7 @@ predictions*
 synthetic_traj_old*
 logs/
 tsne_plots/
+metric/
 old_files*
 video_models_logs*
 model_ckpt*
@@ -25,3 +27,4 @@ dataset_example/droid_subset/annotation/val_old*
 
 tmp_*
 slurm_outputs/
+*results/

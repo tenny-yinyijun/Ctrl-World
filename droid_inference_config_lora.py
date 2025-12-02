@@ -10,7 +10,8 @@ class wm_args:
     # model paths
     svd_model_path = "/n/fs/tom-project/video_models/Ctrl-World/stable-video-diffusion-img2vid"
     clip_model_path = "/n/fs/tom-project/video_models/Ctrl-World/clip-vit-base-patch32"
-    ckpt_path = None
+    ckpt_path = "/n/fs/tom-project/video_models/Ctrl-World/checkpoints/Ctrl-World/checkpoint-10000.pt"
+    base_ckpt_path = "/n/fs/tom-project/video_models/Ctrl-World/checkpoints/Ctrl-World/checkpoint-10000.pt"  # Base checkpoint for LoRA fine-tuning
     pi_ckpt = '/cephfs/shared/llm/openpi/openpi-assets-preview/checkpoints/pi05_droid'
 
     # dataset parameters
@@ -22,21 +23,21 @@ class wm_args:
     dataset_cfgs = dataset_names
     prob=[1.0]
     annotation_name='annotation' #'annotation_all_skip1'
-    num_workers=4
+    num_workers=8
     down_sample=3 # downsample 15hz to 5hz
     skip_step = 1
     
 
     # logs parameters
     debug = False
-    tag = 'droid_irom_textcondtrue'
+    tag = '1127_droid_irom_finetune'
     output_dir = f"model_ckpt/{tag}"
     wandb_run_name = tag
     wandb_project_name = "droid_example"
 
 
     # training parameters
-    learning_rate= 1e-5 # 5e-6
+    learning_rate= 5e-7 #1e-5 # 5e-6
     gradient_accumulation_steps = 8
     mixed_precision = 'fp16'
     train_batch_size = 1
@@ -63,12 +64,19 @@ class wm_args:
     num_frames= 5
     num_history = 6
     action_dim = 7
-    text_cond = True
+    text_cond = False
     frame_level_cond = True
     his_cond_zero = False
     dtype = torch.bfloat16 # [torch.float32, torch.bfloat16] # during inference, we can use bfloat16 to accelerate the inference speed and save memory
 
-
+    use_lora = True 
+    lora_rank = 16  # Higher rank for capturing subtle improvements (was 16, too constrained)
+    lora_alpha = 16  # LoRA scaling = rank for 1x scaling
+    lora_dropout = 0.0  # No dropout for refinement (was 0.05)
+    lora_target_modules = ["to_q", "to_k", "to_v", "to_out.0", "ff.net.0.proj", "ff.net.2"]  # Attention + FFN for max capacity
+    # Options: ["to_q", "to_k", "to_v", "to_out.0"] for attention only (recommended)
+    #          ["to_q", "to_k", "to_v", "to_out.0", "ff.net.0.proj", "ff.net.2"] for attention + FFN (more params)
+    train_action_encoder = True 
 
     ########################### rollout args ############################
     # policy
@@ -82,7 +90,7 @@ class wm_args:
     interact_num = 12 # number of interactions (each interaction contains pred_step steps)
 
     # wm
-    data_stat_path = 'dataset_meta_info/droid_irom/stat.json'
+    data_stat_path = 'dataset_meta_info/droid/stat.json'
     val_model_path = ckpt_path
     history_idx = [0,0,-12,-9,-6,-3]
 
@@ -100,11 +108,11 @@ class wm_args:
 
         # Configure per-task eval sets
         if self.task_type == "replay":
-            self.val_dataset_dir = "/n/fs/iromdata/video_model_training/lab/1120_test_new"
-            self.val_id = ["0", "1", "2"]
-            self.start_idx = [0, 0, 0]
+            self.val_dataset_dir = "dataset_example/irom_play"
+            self.val_id = ["9", "19", "29", "39"]
+            self.start_idx = [0] * len(self.val_id)
             self.instruction = [""] * len(self.val_id)
-            self.task_name = "Rollouts_replay"
+            self.task_name = "Rollouts_replay_play"
 
         elif self.task_type == "keyboard":
             self.val_dataset_dir = "dataset_example/droid_subset"
@@ -112,14 +120,6 @@ class wm_args:
             self.start_idx = [23] * len(self.val_id)
             self.instruction = [""] * len(self.val_id)
             self.task_name = "Rollouts_keyboard"
-
-        # elif self.task_type == "keyboard2":
-        #     self.val_dataset_dir = "/cephfs/shared/droid_hf/droid_svd_v2"
-        #     self.val_id = ["1499"]*100
-        #     self.start_idx = [8] * len(self.val_id) # 2599 8 #9499 10
-        #     self.instruction = [""] * len(self.val_id)
-        #     self.task_name = "Rollouts_keyboard_1499"
-        #     self.ineraction_num = 7
 
         elif self.task_type == "pickplace":
             self.interact_num = 15

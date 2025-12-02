@@ -45,7 +45,7 @@ class wm_args:
     num_train_epochs = 100
     max_train_steps = 500000
     logging_steps = 10  # Log training loss, LR, grad norm every N steps
-    checkpointing_steps = 500
+    checkpointing_steps = 1000
     validation_steps = 1500
     max_grad_norm = 2.0  # More permissive for refinement (was 5.0)
     save_full_checkpoint = False  # If False, only saves LoRA adapters + action encoder (lightweight). If True, also saves full model state.
