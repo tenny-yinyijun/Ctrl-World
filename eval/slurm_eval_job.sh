@@ -27,7 +27,7 @@ conda activate ctrl-world
 # DOWNSAMPLED - Whether data is downsampled
 # GRIPPER_ANNOTATION - Whether to annotate gripper values
 
-DATASET_DIR="dataset_example/${DATASET_NAME}"
+DATASET_DIR="dataset_example/held-out/${DATASET_NAME}"
 
 echo "=========================================="
 echo "SLURM Job Information"

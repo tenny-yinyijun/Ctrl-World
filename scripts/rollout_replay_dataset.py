@@ -135,47 +135,37 @@ class agent():
         ndata = 2 * (data - data_min) / (data_max - data_min + eps) - 1
         return np.clip(ndata, clip_min, clip_max)
 
-    def get_traj_info(self, id, start_idx=0, steps=8):
+    def get_traj_info(self, 
+                      id, 
+                      start_idx=0, # starting frame index
+                      num_frames=8 # number of generated frames (downsampled)
+                      ):
         val_dataset_dir = self.args.val_dataset_dir
         args = self.args
         skip = args.skip_step
-        num_frames = steps
+        
+        # parse annotation path
         annotation_path = f"{args.val_dataset_dir}/annotation/train/{id}.json"
-
-        # Try train first, then val
         if not os.path.exists(annotation_path):
             annotation_path = f"{args.val_dataset_dir}/annotation/val/{id}.json"
 
+        # calculate raw length
         with open(annotation_path) as f:
             anno = json.load(f)
-            # Handle new dataset format
-            if 'observation.state.cartesian_position' in anno:
-                # New dataset format
-                length = len(anno['observation.state.cartesian_position'])
-            elif 'action' in anno:
-                length = len(anno['action'])
-            else:
-                length = anno["video_length"]
 
-        # Determine the actual skip step based on whether data is already downsampled
-        # If not downsampled, data is at 15Hz and needs to be downsampled by factor of 3 to get 5Hz
+        # calculate true skip factor
         downsample_factor = 1 if args.downsampled else 3
         actual_skip = skip * downsample_factor
 
-        frames_ids = np.arange(start_idx, start_idx + num_frames * actual_skip, actual_skip)
+        # frame ids to read from gt actions (raw)
+        frames_ids = np.arange(start_idx, start_idx + (num_frames+1) * actual_skip, actual_skip)
         
-        # downsample action
-        # length = length // actual_skip
-        print(f"Original trajectory length: {length}")
-        max_ids = np.ones_like(frames_ids) * (length - 1)
-        frames_ids = np.min([frames_ids, max_ids], axis=0).astype(int)
-        print(f"Ground truth frames ids (downsampled={args.downsampled}, downsample_factor={downsample_factor}): {frames_ids}")
-        length = len(frames_ids)
-        print(f"Total frames to process: {length}")
-        print(f"skip: {skip}, actual_skip: {actual_skip}")
-        # get action and joint pos - handle both old and new dataset formats
+        # frame ids to read from gt video (downsampled)
+        downsampled_frame_ids = frames_ids // actual_skip
+        
         instruction = ""
 
+        # get actions/states
         if 'observation.state.cartesian_position' in anno:
             car_action = np.array(anno['observation.state.cartesian_position'])
             # obs_state_cart is 6-dim (xyz + rotation), need to add gripper state
@@ -200,7 +190,7 @@ class agent():
             joint_pos = np.array(anno['joints'])
         joint_pos = joint_pos[frames_ids]
 
-        # get videos - handle both old and new dataset formats
+        # get videos
         video_dict = []
         video_latent = []
 
@@ -214,11 +204,14 @@ class agent():
         for video_path in video_paths:
             # load videos from all views
             vr = VideoReader(video_path, ctx=cpu(0), num_threads=2)
-            print("length of video:", len(vr))
+            # print("length of video:", len(vr))
             try:
-                true_video = vr.get_batch(range(length)).asnumpy()
+                true_video = vr.get_batch(downsampled_frame_ids).asnumpy()
+                # true_video = vr.get_batch(range(length)).asnumpy()
             except:
-                true_video = vr.get_batch(range(length)).numpy()
+                true_video = vr.get_batch(downsampled_frame_ids).numpy()
+                # true_video = vr.get_batch(range(length)).numpy()
+                
             # true_video = true_video[frames_ids]
             video_dict.append(true_video)
 
@@ -345,7 +338,12 @@ class agent():
         return videos_cat, true_video, videos, latents  # np.uint8:(3, 8, 128, 256, 3) or (3, 8, 192, 320, 3)
 
 
-def process_single_trajectory(Agent, val_id_i, start_idx_i, interact_num, pred_step, args):
+def process_single_trajectory(Agent, 
+                              val_id_i, 
+                              start_idx_i, # starting frame index (raw)
+                              interact_num, # number of prediction rounds
+                              pred_step, # number of (downsampled) frames for each prediction window
+                              args):
     """Process a single trajectory and return the rollout video."""
     num_history = args.num_history
     num_frames = args.num_frames
@@ -356,7 +354,9 @@ def process_single_trajectory(Agent, val_id_i, start_idx_i, interact_num, pred_s
 
     # read ground truth trajectory informations
     eef_gt, joint_pos_gt, _, video_latents, instruction = Agent.get_traj_info(
-        val_id_i, start_idx=start_idx_i, steps=int(pred_step*interact_num)
+        val_id_i, 
+        start_idx=start_idx_i, 
+        num_frames=int(interact_num * (pred_step - 1)) # total number of generated frames
     )
     text_i = instruction
     print("Instruction:", instruction)
@@ -381,6 +381,7 @@ def process_single_trajectory(Agent, val_id_i, start_idx_i, interact_num, pred_s
         start_id = int(i*(pred_step-1))
         end_id = start_id + pred_step
         video_latent_true = [v[start_id:end_id] for v in video_latents]
+        print(f"start={start_id}, end={end_id}, video_latent_true[0] shape = {video_latent_true[0].shape}")
 
         # prepare input for policy
         joint_first = his_joint[-1][0]
@@ -392,19 +393,28 @@ def process_single_trajectory(Agent, val_id_i, start_idx_i, interact_num, pred_s
         print(f"\n--- Interaction step: {i+1}/{interact_num} ---")
         # in the trajectory replay model, we use action recorded in trajectory
         cartesian_pose = eef_gt[start_id:end_id]  # (pred_step, 7)
-        print("Cartesian action (first):", cartesian_pose[0])
-        print("Cartesian action (last):", cartesian_pose[-1])
+        # print("Cartesian action (first):", cartesian_pose[0])
+        # print("Cartesian action (last):", cartesian_pose[-1])
+        print("cartesian action shape:", cartesian_pose.shape)
 
         # retrieve history cond and action cond
         history_idx = [0, 0, -8, -6, -4, -2]
         his_pose = np.concatenate([his_eef[idx] for idx in history_idx], axis=0)  # (4, 7)
+        print("his_pose shape:", his_pose.shape)
         action_cond = np.concatenate([his_pose, cartesian_pose], axis=0)
+        print("action_cond shape:", action_cond.shape)
         his_cond_input = torch.cat([his_cond[idx] for idx in history_idx], dim=0).unsqueeze(0)
         current_latent = his_cond[-1]  # (1, 4, 72, 40)
-        assert current_latent.shape == (1, 4, 72, 40), f"Expected current_latent shape (1, 4, 72, 40), got {current_latent.shape}"
-        assert action_cond.shape == (int(num_history+num_frames), 7), f"Expected action_cond shape ({int(num_history+num_frames)}, 7), got {action_cond.shape}"
-        assert his_cond_input.shape == (1, int(num_history), 4, 72, 40), f"Expected his_cond_input shape (1, {int(num_history)}, 72, 40), got {his_cond_input.shape}"
-
+        try: 
+            assert current_latent.shape == (1, 4, 72, 40), f"Expected current_latent shape (1, 4, 72, 40), got {current_latent.shape}"
+            assert action_cond.shape == (int(num_history+num_frames), 7), f"Expected action_cond shape ({int(num_history+num_frames)}, 7), got {action_cond.shape}"
+            assert his_cond_input.shape == (1, int(num_history), 4, 72, 40), f"Expected his_cond_input shape (1, {int(num_history)}, 72, 40), got {his_cond_input.shape}"
+        except AssertionError as e:
+            print("AssertionError:", e)
+            print("current_latent:", current_latent.shape)
+            print("action_cond:", action_cond.shape)
+            print("his_cond_input:", his_cond_input.shape)
+            raise e
         # forward world model
         videos_cat, _, _, predicted_latents = Agent.forward_wm(
             action_cond, video_latent_true, current_latent,

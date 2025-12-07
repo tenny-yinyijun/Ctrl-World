@@ -28,12 +28,37 @@ python dataset_meta_info/create_meta_info.py --droid_output_path dataset_example
 python dataset_meta_info/create_meta_info.py --droid_output_path dataset_example/demo/v0_1201_100 --dataset_name v0_1201_100
 
 # Lora
+ TODO
 ```
 
-## 3. Evaluation
+## 3. Evaluation: Inference
 
-Currently support 4 sets of evaluation: clean demonstration, noisy demonstration, policy roll-out (good), policy roll-out (bad). You can find these 
 
 ```bash
+# Launch single eval
+python eval/rollout_single_model.py \
+  --model_alias base_model \
+  --dataset_dir dataset_example/held-out/eval_v0_dyn \
+  --registry_path model_registry.json \
+  --output_base_dir results/test
+
+# Launch batch eval
+bash eval/submit_batch_jobs.sh
+```
+
+## 4. Evaluation: Metric Computation
+
+
+## Utilities
+
+### Data visualizers
+
+```bash
+# Calculate Raw Time
+python util_scripts/calculate_time.py dataset_example/irom_1126_play
+
+# Play dataset visualizer: refer to /n/fs/iromdata/irom_droid_data/conversion_utils/visualize_all_videos.py
 
 ```
+
+### Analysis

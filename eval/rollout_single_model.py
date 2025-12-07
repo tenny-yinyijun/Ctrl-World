@@ -143,12 +143,22 @@ def run_inference(model_alias: str, dataset_dir: str, registry_path: str = "mode
             history_frames = 8
             interact_num = max(1, (available_frames - history_frames) // (pred_step - 1) - 1)
 
-            print(f"\nTrajectory {val_id_i} ({split}): total_length={total_length}, "
-                  f"available_frames={available_frames}, interact_num={interact_num}")
+            print(f"\nTrajectory {val_id_i} ({split}): ")
+            # total_length={total_length}, "
+            # f"available_frames={available_frames}, interact_num={interact_num}")
 
+            # make sure total_length aligns with actual_skip
+            total_length_aligned = total_length - total_length % actual_skip
+            
+            # Choose start idx so that ends exactly on last frame
+            start_id = total_length_aligned - interact_num * (pred_step-1) * actual_skip
+
+            print(f"--raw length {total_length} -> {total_length_aligned}")
+            print(f"--start_idx (raw) = {start_id} ")
+            print(f"--interact_num = {interact_num}, pred_step = {pred_step}")
             # Run inference on single trajectory
             video_cat, instruction = process_single_trajectory(
-                Agent, val_id_i, args.start_idx, interact_num, pred_step, args
+                Agent, val_id_i, start_id, interact_num, pred_step, args
             )
 
             # Check if groundtruth already exists for this trajectory

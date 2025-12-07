@@ -2,20 +2,115 @@
   "_comment": "Model registry for evaluation inference pipeline",
   "_instructions": "Add your models here. Each model needs an alias, mode (full/lora), and checkpoint_path.",
 
-  "example_full_model": {
-    "alias": "example_full_model",
+  "base_model": {
+    "alias": "base_model",
     "mode": "full",
-    "checkpoint_path": "/path/to/checkpoint.pt",
-    "description": "Example full fine-tuned model",
-    "created_date": "2024-01-15"
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/checkpoints/Ctrl-World/checkpoint-10000.pt",
+    "description": "Base model trained on DROID dataset"
   },
-
-  "example_lora_model": {
-    "alias": "example_lora_model",
+  "1201-demo-v0-ckpt10000": {
+    "alias": "1201-demo-v0-ckpt10000",
+    "mode": "full",
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1201-v0_1201_100/checkpoint-10000.pt",
+    "description": "Full model fine-tuned on demo data v0, ckpt 10000"
+  },
+  "1201-demo-v0-ckpt15000": {
+    "alias": "1201-demo-v0-ckpt15000",
+    "mode": "full",
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1201-v0_1201_100/checkpoint-15000.pt",
+    "description": "Full model fine-tuned on demo data v0, ckpt 15000"
+  },
+  "1201-demo-v0-ckpt30000": {
+    "alias": "1201-demo-v0-ckpt30000",
+    "mode": "full",
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1201-v0_1201_100/checkpoint-30000.pt",
+    "description": "Full model fine-tuned on demo data v0, ckpt 30000"
+  },
+  "1201-demo-v0-ckpt45000": {
+    "alias": "1201-demo-v0-ckpt45000",
+    "mode": "full",
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1201-v0_1201_100/checkpoint-45000.pt",
+    "description": "Full model fine-tuned on demo data v0, ckpt 45000"
+  },
+  "1201-play400-v0-ckpt10000": {
+    "alias": "1201-play400-v0-ckpt10000",
+    "mode": "full",
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1201-irom_1130_play_v0/checkpoint-10000.pt",
+    "description": "Full model fine-tuned on play data v0, ckpt 10000"
+  },
+  "1201-play400-v0-ckpt15000": {
+    "alias": "1201-play400-v0-ckpt15000",
+    "mode": "full",
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1201-irom_1130_play_v0/checkpoint-15000.pt",
+    "description": "Full model fine-tuned on play data v0, ckpt 15000"
+  },
+  "1201-play400-v0-ckpt30000": {
+    "alias": "1201-play400-v0-ckpt30000",
+    "mode": "full",
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1201-irom_1130_play_v0/checkpoint-30000.pt",
+    "description": "Full model fine-tuned on play data v0, ckpt 30000"
+  },
+  "1201-play400-v0-ckpt40000": {
+    "alias": "1201-play400-v0-ckpt40000",
+    "mode": "full",
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1201-irom_1130_play_v0/checkpoint-40000.pt",
+    "description": "Full model fine-tuned on play data v0, ckpt 40000"
+  },
+  "1201-play400-v0-ckpt45000": {
+    "alias": "1201-play400-v0-ckpt45000",
+    "mode": "full",
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1201-irom_1130_play_v0/checkpoint-45000.pt",
+    "description": "Full model fine-tuned on play data v0, ckpt 45000"
+  },
+  "1201-play400-v0-ckpt65000": {
+    "alias": "1201-play400-v0-ckpt65000",
+    "mode": "full",
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1204-irom_1130_play_v0/checkpoint-12000.pt",
+    "description": "Full model fine-tuned on play data v0, ckpt 65000"
+  },
+  "1201-play400-v0-ckpt90000": {
+    "alias": "1201-play400-v0-ckpt90000",
+    "mode": "full",
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1204-irom_1130_play_v0/checkpoint-39000.pt",
+    "description": "Full model fine-tuned on play data v0, ckpt 90000"
+  },
+  "lora-playv0-ckpt5000": {
+    "alias": "lora-playv0-ckpt5000",
     "mode": "lora",
-    "checkpoint_path": "/path/to/lora_adapters/",
-    "base_checkpoint_path": "/path/to/base_checkpoint.pt",
-    "description": "Example LoRA fine-tuned model (lora_target_modules will use config default)",
-    "created_date": "2024-02-01"
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1128_finetune-lora-v1-irom_play+irom_1126_play/lora_only-5000",
+    "base_checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/checkpoints/Ctrl-World/checkpoint-10000.pt",
+    "description": "LoRA fine-tuned on play data v0, ckpt 5000"
+  },
+  "lora-playv0-ckpt15000": {
+    "alias": "lora-playv0-ckpt15000",
+    "mode": "lora",
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1128_finetune-lora-v1-irom_play+irom_1126_play/lora_only-15000",
+    "base_checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/checkpoints/Ctrl-World/checkpoint-10000.pt",
+    "description": "LoRA fine-tuned on play data v0, ckpt 15000"
+  },
+  "lora-playv0-ckpt25000": {
+    "alias": "lora-playv0-ckpt25000",
+    "mode": "lora",
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1128_finetune-lora-v1-irom_play+irom_1126_play/lora_only-25000",
+    "base_checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/checkpoints/Ctrl-World/checkpoint-10000.pt",
+    "description": "LoRA fine-tuned on play data v0, ckpt 25000"
+  },
+  "full-playv0-ckpt5000": {
+    "alias": "full-playv0-ckpt5000",
+    "mode": "full",
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1126_full_finetune-v1-irom_play+irom_1126_play/checkpoint-5000.pt",
+    "description": "Full model fine-tuned on play data v0, ckpt 5000"
+  },
+  "full-playv0-ckpt15000": {
+    "alias": "full-playv0-ckpt15000",
+    "mode": "full",
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1126_full_finetune-v1-irom_play+irom_1126_play/checkpoint-15000.pt",
+    "description": "Full model fine-tuned on play data v0, ckpt 15000"
+  },
+  "full-playv0-ckpt25000": {
+    "alias": "full-playv0-ckpt25000",
+    "mode": "full",
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1126_full_finetune-v1-irom_play+irom_1126_play/checkpoint-25000.pt",
+    "description": "Full model fine-tuned on play data v0, ckpt 25000"
   }
 }
