@@ -25,16 +25,17 @@ conda activate ctrl-world
 pip install -r requirements.txt
 ```
 
-Next install the required dependencies:
+Next install the required dependencies (TODO):
 
 ```bash
-# stable-video-diffusion-img2vid
-# 
+# https://huggingface.co/openai/clip-vit-base-patch32
+# https://huggingface.co/stabilityai/stable-video-diffusion-img2vid
+# https://huggingface.co/yjguo/Ctrl-World
 ```
 
 ## Data Processing
 
-TODO add play data and combine 
+Combine (TODO)
 
 ```bash
 # pre-compute latent
@@ -57,7 +58,8 @@ See [train.sh](bash_scripts/train.sh) for an example
 
 ## Inference
 
+Test model inference on single trajectory replay
+
 ## Evaluation
 
-
-## Utilities
+Running batch inference with many models and many evaluation datasets
