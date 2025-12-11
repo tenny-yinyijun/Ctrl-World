@@ -44,11 +44,12 @@ class Dataset_mix(Dataset):
 
         dataset_root_path = args.dataset_root_path
         dataset_names = args.dataset_names.split('+')
-        dataset_meta_info_path = args.dataset_meta_info_path
-        dataset_cfgs = args.dataset_cfgs.split('+')
+        # dataset_meta_info_path = args.dataset_meta_info_path
+        # dataset_cfgs = args.dataset_cfgs.split('+')
         self.prob = args.prob
-        for dataset_name, dataset_cfg in zip(dataset_names, dataset_cfgs):
-            data_json_path = f'{dataset_meta_info_path}/{dataset_cfg}/{mode}_sample.json'
+        for dataset_name in dataset_names:
+            data_json_path = f'{dataset_root_path}/{dataset_name}/metainfo/{mode}_sample.json'
+            # data_json_path = f'{dataset_meta_info_path}/{dataset_cfg}/{mode}_sample.json'
      
             with open(data_json_path, "r") as f:
                 samples = json.load(f)
@@ -59,7 +60,8 @@ class Dataset_mix(Dataset):
             self.samples_len.append(len(samples))
 
             # prepare normalization
-            with open(f'{dataset_meta_info_path}/{dataset_name}/stat.json', "r") as f:
+            with open(f'{dataset_root_path}/{dataset_name}/metainfo/stat.json', "r") as f:
+            # with open(f'{dataset_meta_info_path}/{dataset_name}/stat.json', "r") as f:
                 data_stat = json.load(f)
                 state_p01 = np.array(data_stat['state_01'])[None,:]
                 state_p99 = np.array(data_stat['state_99'])[None,:]

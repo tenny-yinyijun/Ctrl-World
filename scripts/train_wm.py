@@ -22,6 +22,7 @@ import mediapy
 from models.ctrl_world import CrtlWorld
 from droid_irom_finetune_lora import wm_args as wm_args_lora
 from droid_irom_finetune import wm_args as wm_args_full
+from droid_irom_finetune_small import wm_args as wm_args_small
 import math
 
 
@@ -217,7 +218,7 @@ def main(args):
     # Define multiple validation datasets with their metric prefixes
     # Format: (dataset_name, dataset_cfg, metric_prefix)
     validation_configs = [
-        (args.dataset_names, args.dataset_cfgs, "val"),  # Regular val split
+        (args.dataset_names, "val"),  # Regular val split
         # ("droid_validation", "droid_validation", "droid_val"),  # Check for forgetting
         # ("irom_test", "irom_test", "irom_val"),  # Check for overfitting
         # Add more validation datasets here as needed, e.g.:
@@ -226,10 +227,10 @@ def main(args):
 
     # Create validation datasets
     val_datasets = []
-    for dataset_name, dataset_cfg, prefix in validation_configs:
+    for dataset_name, prefix in validation_configs:
         val_args = copy.deepcopy(args)
         val_args.dataset_names = dataset_name
-        val_args.dataset_cfgs = dataset_cfg
+        # val_args.dataset_cfgs = dataset_cfg
         val_args.prob = [1.0]
         val_dataset = Dataset_mix(val_args, mode='val')
         val_datasets.append((val_dataset, prefix))
@@ -535,6 +536,8 @@ if __name__ == "__main__":
         wm_args = wm_args_lora
     elif args_new.config == "droid_irom_finetune":
         wm_args = wm_args_full
+    elif args_new.config == "droid_irom_finetune_small":
+        wm_args = wm_args_small
     else:
         raise NotImplementedError(f"Unknown config: {args_new.config}")
     args = wm_args()
@@ -551,7 +554,7 @@ if __name__ == "__main__":
     args.output_dir = f"model_ckpt/{args.tag}"
     args.wandb_run_name = args.tag
     
-    args.dataset_cfgs = args.dataset_names  # for simplicity, use the same names for cfgs
+    # args.dataset_cfgs = args.dataset_names  # for simplicity, use the same names for cfgs
     
     # change args.prob if there are multiple datasets (connected by "+", e.g. "droid+irom")
     if '+' in args.dataset_names:
