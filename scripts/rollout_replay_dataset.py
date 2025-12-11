@@ -156,12 +156,6 @@ class agent():
         # calculate true skip factor
         downsample_factor = 1 if args.downsampled else 3
         actual_skip = skip * downsample_factor
-
-        # frame ids to read from gt actions (raw)
-        frames_ids = np.arange(start_idx, start_idx + (num_frames+1) * actual_skip, actual_skip)
-        
-        # frame ids to read from gt video (downsampled)
-        downsampled_frame_ids = frames_ids // actual_skip
         
         instruction = ""
 
@@ -178,6 +172,28 @@ class agent():
                 car_action = np.concatenate([car_action, gripper_state], axis=1)
         else:
             car_action = np.array(anno['states'])
+
+        # frame ids to read from gt actions (raw)
+        end_idx = start_idx + (num_frames+1) * actual_skip
+        # FIX BUG WITH DIVISIBLE BY 3 ERROR
+        if end_idx == len(car_action) + 3:
+            print("previous end point:", end_idx)
+            # shift both down by 3
+            end_idx = end_idx - 3
+            start_idx = start_idx - 3
+            
+        print("arranged end point:", end_idx)
+
+        frames_ids = np.arange(start_idx, end_idx, actual_skip)
+        
+        # frame ids to read from gt video (downsampled)
+        downsampled_frame_ids = frames_ids // actual_skip
+
+        print("# frames:", len(frames_ids))
+        print("# actions:", len(car_action))
+        print("start index:", frames_ids[0])
+        print("end index:", frames_ids[-1])
+        print("skip size:", actual_skip)
         car_action = car_action[frames_ids]
 
         if 'observation.state.joint_position' in anno:
@@ -204,7 +220,7 @@ class agent():
         for video_path in video_paths:
             # load videos from all views
             vr = VideoReader(video_path, ctx=cpu(0), num_threads=2)
-            # print("length of video:", len(vr))
+            print("length of video:", len(vr))
             try:
                 true_video = vr.get_batch(downsampled_frame_ids).asnumpy()
                 # true_video = vr.get_batch(range(length)).asnumpy()
@@ -580,7 +596,7 @@ if __name__ == "__main__":
 
             # Save the video with simple naming: {traj_id}.mp4
             filename_video = os.path.join(video_dir, f"{val_id_i}.mp4")
-            mediapy.write_video(filename_video, video, fps=4)
+            mediapy.write_video(filename_video, video, fps=5)
             print(f"Saved video to {filename_video}")
 
             successful_count += 1

@@ -13,17 +13,15 @@
 # List of model aliases from model_registry.json
 MODEL_ALIASES=(
     "base_model"
-    "lora-playv0-ckpt5000"
-    "full-playv0-ckpt5000"
-    "lora-playv0-ckpt15000"
-    "lora-playv0-ckpt25000"
-    "full-playv0-ckpt15000"
-    "full-playv0-ckpt25000"
+    "1201-demo-v0-ckpt45000"
+    "1211-humanplay-ckpt32500"
+    "1201-play400-v0-ckpt90000"
+    "1211-play4000-v0-ckpt95000"
 )
 
 # List of dataset names (under dataset_example/)
 DATASET_NAMES=(
-    "eval_random"
+    # "eval_random"
     "eval_v0_clean_success"
     "eval_v0_dyn"
     # "droid_validation"
