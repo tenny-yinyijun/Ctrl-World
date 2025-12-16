@@ -100,4 +100,4 @@ if __name__ == "__main__":
         
     # copy stat.json file to dataset_meta_info/{dataset_name}/stat.json
     import shutil
-    shutil.copyfile("/n/fs/tom-project/video_models/Ctrl-World/dataset_meta_info/droid/stat.json", f'{data_root}/metainfo/stat.json')
+    shutil.copyfile("assets/stat.json", f'{data_root}/metainfo/stat.json')

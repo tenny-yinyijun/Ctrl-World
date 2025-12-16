@@ -228,7 +228,7 @@ if __name__ == "__main__":
                        help='Model alias from model_registry.json')
     parser.add_argument('--dataset_dir', type=str, required=True,
                        help='Path to dataset directory')
-    parser.add_argument('--registry_path', type=str, default='model_registry.json',
+    parser.add_argument('--registry_path', type=str, default='assets/model_registry.json',
                        help='Path to model_registry.json')
     parser.add_argument('--output_base_dir', type=str, default='evaluation_inf_results',
                        help='Base directory for evaluation results')

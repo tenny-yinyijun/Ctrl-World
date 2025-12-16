@@ -12,9 +12,9 @@
 
 # List of model aliases from model_registry.json
 MODEL_ALIASES=(
-    # "base_model"
+    "base_model"
     # "1201-demo-v0-ckpt45000"
-    "1211-humanplay-ckpt70000"
+    # "1211-humanplay-ckpt70000"
     # "1201-play400-v0-ckpt90000"
     # "1211-play4000-v0-ckpt95000"
     # "1211-play4000-v0-ckptbig"
@@ -22,8 +22,7 @@ MODEL_ALIASES=(
 
 # List of dataset names (under dataset_example/)
 DATASET_NAMES=(
-    "v0_dyn_2"
-    # "eval_random"
+    "eval_random"
     # "eval_v0_clean_success"
     # "eval_v0_dyn"
     # "droid_validation"
@@ -31,10 +30,10 @@ DATASET_NAMES=(
 )
 
 # Path to model registry
-REGISTRY_PATH="/n/fs/tom-project/video_models/Ctrl-World/model_registry.json"
+REGISTRY_PATH="assets/model_registry.json"
 
 # Output base directory
-OUTPUT_BASE_DIR="evaluation_sanity_results"
+OUTPUT_BASE_DIR="evaluation_results"
 
 ################# DON"T CHANGE #################
 

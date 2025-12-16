@@ -14,7 +14,6 @@ class wm_args:
     svd_model_path = "/n/fs/tom-project/video_models/Ctrl-World/stable-video-diffusion-img2vid"
     clip_model_path = "/n/fs/tom-project/video_models/Ctrl-World/clip-vit-base-patch32"
     ckpt_path = "/n/fs/tom-project/video_models/Ctrl-World/checkpoints/Ctrl-World/checkpoint-10000.pt"
-    # ckpt_path = "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1209-8gpu-v0_1208-2200/checkpoint-130000.pt"
     pi_ckpt = '/cephfs/shared/llm/openpi/openpi-assets-preview/checkpoints/pi05_droid'
 
     # dataset parameters
