@@ -83,8 +83,10 @@ class EncodeLatentDataset(Dataset):
         # if f"{save_root}/videos/{data_type}/{traj_id}" exist, skip this trajectory
         try:
             self.process_traj(video_paths, traj_info, instruction, self.new_path, traj_id=traj_id, data_type=data_type, size=self.size, rgb_skip=self.skip, device=self.vae.device)
-        except:
-            print(f"Error processing trajectory {traj_id}, skipping...")
+        except Exception as e:
+            print(f"Error processing trajectory {traj_id}: {e}")
+            import traceback
+            traceback.print_exc()
             return 0
     
         return 0
@@ -113,8 +115,8 @@ class EncodeLatentDataset(Dataset):
                     # x = vae.encode(x).latent_dist.sample().mul_(vae.config.scaling_factor).cpu()
                     latents.append(latent)
                 x = torch.cat(latents, dim=0)
-            os.makedirs(f"{save_root}/latent_videos/{data_type}/{traj_id}", exist_ok=True)
-            torch.save(x, f"{save_root}/latent_videos/{data_type}/{traj_id}/{video_id}.pt")
+            os.makedirs(f"{save_root}/latent_videos_svd/{data_type}/{traj_id}", exist_ok=True)
+            torch.save(x, f"{save_root}/latent_videos_svd/{data_type}/{traj_id}/{video_id}.pt")
         
         # record cartesain aligned with video frames
         cartesian_pose = np.array(traj_info['observation.state.cartesian_position'])
@@ -135,9 +137,9 @@ class EncodeLatentDataset(Dataset):
                 {"video_path": f"videos/{data_type}/{traj_id}/2.mp4"}
             ],
             "latent_videos": [
-                {"latent_video_path": f"latent_videos/{data_type}/{traj_id}/0.pt"},
-                {"latent_video_path": f"latent_videos/{data_type}/{traj_id}/1.pt"},
-                {"latent_video_path": f"latent_videos/{data_type}/{traj_id}/2.pt"}
+                {"latent_video_path": f"latent_videos_svd/{data_type}/{traj_id}/0.pt"},
+                {"latent_video_path": f"latent_videos_svd/{data_type}/{traj_id}/1.pt"},
+                {"latent_video_path": f"latent_videos_svd/{data_type}/{traj_id}/2.pt"}
             ],
             'states': cartesian_states,
             'observation.state.cartesian_position': traj_info['observation.state.cartesian_position'],

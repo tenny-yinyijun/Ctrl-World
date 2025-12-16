@@ -19,10 +19,10 @@ cd /n/fs/tom-project/video_models/Ctrl-World
 conda activate ctrl-world
 
 # demonstration format
-python dataset_example/extract_latent_irom.py \
-    --irom_data_path /n/fs/iromdata/irom_droid_data/demo/2025-12-01_clean_demo_v0-100 \
-    --output_path dataset_example/demo/v0_1201_100 \
-    --svd_path /n/fs/tom-project/video_models/Ctrl-World/stable-video-diffusion-img2vid
+# python dataset_example/extract_latent_irom.py \
+#     --irom_data_path /n/fs/iromdata/irom_droid_data/demo/2025-12-01_clean_demo_v0-100 \
+#     --output_path dataset_example/demo/v0_1201_100 \
+#     --svd_path /n/fs/tom-project/video_models/Ctrl-World/stable-video-diffusion-img2vid
 
 # python dataset_example/extract_latent_irom.py \
 #     --irom_data_path /n/fs/iromdata/irom_droid_data/held-out/v0_dyn \
@@ -31,7 +31,7 @@ python dataset_example/extract_latent_irom.py \
 #     --skip_start_frames 20
 
 # play data format
-# python dataset_example/extract_latent_irom_play.py \
-#     --irom_data_path /n/fs/iromdata/irom_droid_data/play_data/2025_11_30_3 \
-#     --output_path dataset_example/irom_1130_play_v0 \
-#     --svd_path stable-video-diffusion-img2vid
+python dataset_example/extract_latent_irom_play.py \
+    --irom_data_path /n/fs/iromdata/irom_droid_data/play_data/v2_2025_12_12_1600 \
+    --output_path /n/fs/iromdata/world_model_data/play/auto/v2_2025_12_12_1600 \
+    --svd_path stable-video-diffusion-img2vid

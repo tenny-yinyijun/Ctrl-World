@@ -14,10 +14,10 @@
     "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1201-v0_1201_100/checkpoint-45000.pt",
     "description": "Full model fine-tuned on demo data v0, ckpt 45000"
   },
-  "1211-humanplay-ckpt32500": {
-    "alias": "1211-humanplay-ckpt32500",
+  "1211-humanplay-ckpt70000": {
+    "alias": "1211-humanplay-ckpt70000",
     "mode": "full",
-    "checkpoint_path": "  /n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1210-test-2025-12-09-v0/checkpoint-32500.pt",
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1210-test-2025-12-09-v0/checkpoint-70000.pt",
     "description": "Human play"
   },
   "1201-play400-v0-ckpt90000": {
@@ -30,6 +30,12 @@
     "alias": "1211-play4000-v0-ckpt95000",
     "mode": "full",
     "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1209-8gpu-v0_1208-2200/checkpoint-95000.pt",
+    "description": "Full auto play"
+  },
+  "1211-play4000-v0-ckptbig": {
+    "alias": "1211-play4000-v0-ckptbig",
+    "mode": "full",
+    "checkpoint_path": "/n/fs/tom-project/video_models/Ctrl-World/model_ckpt/1213-8gpu-continue-v0_1208-2200/checkpoint-40000.pt",
     "description": "Full auto play"
   }
 }

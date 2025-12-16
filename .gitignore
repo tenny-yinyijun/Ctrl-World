@@ -28,5 +28,8 @@ dataset_example/droid_subset/annotation/val_old*
 tmp_*
 slurm_outputs/
 *results/
+eval_*/
+evaluation_*/
+
 
 *.json
