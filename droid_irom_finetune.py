@@ -11,9 +11,9 @@ class wm_args:
     
     ########################### training args ##############################
     # model paths
-    svd_model_path = "/n/fs/tom-project/video_models/Ctrl-World/stable-video-diffusion-img2vid"
-    clip_model_path = "/n/fs/tom-project/video_models/Ctrl-World/clip-vit-base-patch32"
-    ckpt_path = "/n/fs/tom-project/video_models/Ctrl-World/checkpoints/Ctrl-World/checkpoint-10000.pt"
+    svd_model_path = "/home/ubuntu/irom-wm-ill/projects/Ctrl-World/stable-video-diffusion-img2vid"
+    clip_model_path = "/home/ubuntu/irom-wm-ill/projects/Ctrl-World/clip-vit-base-patch32"
+    ckpt_path = "/home/ubuntu/irom-wm-ill/projects/Ctrl-World/checkpoints/checkpoint-10000.pt"
     pi_ckpt = '/cephfs/shared/llm/openpi/openpi-assets-preview/checkpoints/pi05_droid'
 
     # dataset parameters
@@ -31,8 +31,8 @@ class wm_args:
     
     # logs parameters
     debug = False
-    tag = f'finetune-v2-human-demo'
-    output_dir = f"model_ckpt/{tag}"
+    tag = f'undefined_tag'
+    output_dir = f"checkpoints/{tag}"
     wandb_run_name = tag
     wandb_project_name = "droid_example"
 
@@ -40,7 +40,7 @@ class wm_args:
     learning_rate= 5e-7  # Higher LR to escape local optimum (for 90%→95% refinement)
     gradient_accumulation_steps = 1  # Balanced for 8-GPU training
     mixed_precision = 'fp16'
-    train_batch_size = 1  # Increased to reduce data loading bottleneck and improve GPU utilization
+    train_batch_size = 4  # Increased to reduce data loading bottleneck and improve GPU utilization
     shuffle = True
     num_train_epochs = 100
     max_train_steps = 500000

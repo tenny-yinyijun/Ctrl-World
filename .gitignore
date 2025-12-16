@@ -30,6 +30,7 @@ slurm_outputs/
 *results/
 eval_*/
 evaluation_*/
+.venv/
 
 
 *.json

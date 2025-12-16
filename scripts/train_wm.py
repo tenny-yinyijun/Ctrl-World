@@ -20,10 +20,10 @@ from decord import VideoReader, cpu
 import wandb
 import mediapy
 from models.ctrl_world import CrtlWorld
-from droid_irom_finetune_lora import wm_args as wm_args_lora
+# from droid_irom_finetune_lora import wm_args as wm_args_lora
 from droid_irom_finetune import wm_args as wm_args_full
-from droid_irom_finetune_continue import wm_args as wm_args_cont
-from droid_irom_finetune_small import wm_args as wm_args_small
+# from droid_irom_finetune_continue import wm_args as wm_args_cont
+# from droid_irom_finetune_small import wm_args as wm_args_small
 import math
 
 
@@ -533,14 +533,14 @@ if __name__ == "__main__":
     parser.add_argument('--tag', type=str, default=None)
     args_new = parser.parse_args()
     
-    if args_new.config == "droid_irom_finetune_lora":
-        wm_args = wm_args_lora
-    elif args_new.config == "droid_irom_finetune":
+    if args_new.config == "droid_irom_finetune":
         wm_args = wm_args_full
-    elif args_new.config == "droid_irom_finetune_small":
-        wm_args = wm_args_small
-    elif args_new.config == "droid_irom_finetune_continue":
-        wm_args = wm_args_cont
+    # elif args_new.config == "droid_irom_finetune_lora":
+    #     wm_args = wm_args_lora
+    # elif args_new.config == "droid_irom_finetune_small":
+    #     wm_args = wm_args_small
+    # elif args_new.config == "droid_irom_finetune_continue":
+    #     wm_args = wm_args_cont
     else:
         raise NotImplementedError(f"Unknown config: {args_new.config}")
     args = wm_args()
