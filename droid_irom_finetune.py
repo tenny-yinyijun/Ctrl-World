@@ -37,7 +37,7 @@ class wm_args:
     wandb_project_name = "droid_example"
 
     # training parameters
-    learning_rate= 5e-7  # Higher LR to escape local optimum (for 90%→95% refinement)
+    learning_rate= 5e-6  # Higher LR to escape local optimum (for 90%→95% refinement)
     gradient_accumulation_steps = 1  # Balanced for 8-GPU training
     mixed_precision = 'fp16'
     train_batch_size = 4  # Increased to reduce data loading bottleneck and improve GPU utilization
@@ -46,7 +46,7 @@ class wm_args:
     max_train_steps = 500000
     logging_steps = 10  # Log training loss, LR, grad norm every N steps
     checkpointing_steps = 5000
-    validation_steps = 5000
+    validation_steps = 2500
     max_grad_norm = 1.0  # More permissive for refinement (was 5.0)
     save_full_checkpoint = False  # If False, only saves LoRA adapters + action encoder (lightweight). If True, also saves full model state.
 

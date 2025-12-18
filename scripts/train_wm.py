@@ -333,7 +333,7 @@ def main(args):
                         torch.save(unwrapped_model.state_dict(), save_path)
                         logger.info(f"Saved checkpoint to {save_path}")
                 # generate video every validation_steps (including step 0)
-                if global_step % args.validation_steps == 0: # or global_step == 1:
+                if global_step % args.validation_steps == 1: # or global_step == 1:
                     model.eval()  # All ranks must call this to stay synchronized
 
                     # Ensure all ranks wait before validation starts

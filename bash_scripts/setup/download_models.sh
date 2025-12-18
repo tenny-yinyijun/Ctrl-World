@@ -2,11 +2,14 @@
 
 # download clip model
 git clone https://huggingface.co/openai/clip-vit-base-patch32
+sudo apt-get install git-lfs -y
+git lfs install
+cd clip-vit-base-patch32
+git lfs pull
+cd ..
 
 # download stable video diffusion weights
 git clone https://huggingface.co/stabilityai/stable-video-diffusion-img2vid
-sudo apt-get install git-lfs -y
-git lfs install
 cd stable-video-diffusion-img2vid
 git lfs pull
 cd ..

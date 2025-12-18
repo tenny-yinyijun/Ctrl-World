@@ -17,9 +17,7 @@ source ~/.bashrc
 # Create environment and install dependencies
 uv venv --python 3.11
 source .venv/bin/activate
-uv pip install torch==2.7.1+cu126 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cu126
 uv pip install -r requirements.txt
-conda install -c "nvidia/label/cuda-12.6.0" cuda-toolkit
 
 ### Option 2: conda
 conda create -n ctrl-world python==3.11
@@ -50,8 +48,12 @@ python scripts/process_irom_data.py \
 
 ## Training
 
-See [train.sh](bash_scripts/train.sh) for an example:
+Set up wandb logging
+```bash
+echo 'export WANDB_API_KEY=your-wandb-api-key' >> ~/.bashrc && source ~/.bashrc
+```
 
+Then run the actual training command:
 ```bash
 accelerate launch \
   --main_process_port 29501 \
@@ -61,6 +63,7 @@ accelerate launch \
   --config droid_irom_finetune \
   --tag "MMDD-test"
 ```
+See [train.sh](bash_scripts/train.sh) for an example
 
 ## Evaluation
 

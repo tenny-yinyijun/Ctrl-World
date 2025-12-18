@@ -1,12 +1,16 @@
 diffusers==0.34.0
+torch==2.7.1
+torchvision
 transformers==4.48.1
 mediapy
+imageio
 wandb
 swanlab
 accelerate
 tqdm
 numpy
 decord
+omegaconf
 einops
 scipy
 pandas
