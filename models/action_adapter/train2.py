@@ -271,10 +271,6 @@ class Args:
         self.a_min = torch.tensor([-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0]).float()
 
 
-# if __name__ == "__main__":
-
-
-
 if __name__ == "__main__":
     args = Args()
     dataset = Dataset_xhand(args, mode='train')
