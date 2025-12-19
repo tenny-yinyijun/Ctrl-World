@@ -51,6 +51,10 @@ python scripts/process_irom_data.py \
 Set up wandb logging
 ```bash
 echo 'export WANDB_API_KEY=your-wandb-api-key' >> ~/.bashrc && source ~/.bashrc
+
+# install ffmpeg
+sudo apt update
+sudo apt install ffmpeg
 ```
 
 Then run the actual training command:
