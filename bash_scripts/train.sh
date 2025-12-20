@@ -1,20 +1,20 @@
 #!/bin/bash
-
-#SBATCH --nodes=1                                       ## Node count
-#SBATCH --gres=gpu:8                                    ## Number of GPUs per node
-#SBATCH --ntasks-per-node=8                             ## Number of tasks per node
-#SBATCH --cpus-per-task=8                               ## CPU cores per task
-#SBATCH --mem=200G                                      ## Memory per node
+#SBATCH --partition=ailab
+#SBATCH --qos=ailab
+#SBATCH --account=am43
+#SBATCH --gres=gpu:8
+#SBATCH --ntasks=8
+#SBATCH --cpus-per-task=4        
+#SBATCH --mem=300G                                      ## Memory
 #SBATCH --time=48:00:00                                 ## Walltime
-#SBATCH --job-name=ctrl                   ## Job Name
+#SBATCH --job-name=cw                                   ## Job Name
 #SBATCH --output=slurm_outputs/%x/out_log_%x_%j.out     ## Output File
 #SBATCH --mail-type=FAIL                                ## Mail events, e.g., NONE, BEGIN, END, FAIL, ALL.
 #SBATCH --mail-user=yy4041@princeton.edu
-#SBATCH --exclude=neu[301,306,309,311]
 
 source ~/.bashrc
 
-cd /path/to/Ctrl-World
+cd /scratch/gpfs/AM43/yy4041/Ctrl-World
 
 source .venv/bin/activate
 # or: conda activate ctrl-world
@@ -28,7 +28,7 @@ export PYTHONUNBUFFERED=1
 accelerate launch \
   --main_process_port 29501 \
   scripts/train_wm.py \
-  --dataset_root_path /path/to/datasets \
-  --dataset_names v0_1208-2200 \
+  --dataset_root_path /scratch/gpfs/AM43/yy4041/data/robot-play \
+  --dataset_names v2_2025_12_17_1300 \
   --config droid_irom_finetune \
-  --tag "MMDD-test"
+  --tag "1220-ailab"

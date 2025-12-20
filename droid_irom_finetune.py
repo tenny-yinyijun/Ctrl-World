@@ -11,9 +11,9 @@ class wm_args:
     
     ########################### training args ##############################
     # model paths
-    svd_model_path = "/home/ubuntu/irom-wm-ill/projects/Ctrl-World/stable-video-diffusion-img2vid"
-    clip_model_path = "/home/ubuntu/irom-wm-ill/projects/Ctrl-World/clip-vit-base-patch32"
-    ckpt_path = "/home/ubuntu/irom-wm-ill/projects/Ctrl-World/checkpoints/checkpoint-10000.pt"
+    svd_model_path = "/scratch/gpfs/AM43/yy4041/Ctrl-World/stable-video-diffusion-img2vid"
+    clip_model_path = "/scratch/gpfs/AM43/yy4041/Ctrl-World/clip-vit-base-patch32"
+    ckpt_path = "/scratch/gpfs/AM43/yy4041/Ctrl-World/checkpoints/checkpoint-10000.pt"
     pi_ckpt = '/cephfs/shared/llm/openpi/openpi-assets-preview/checkpoints/pi05_droid'
 
     # dataset parameters
@@ -40,7 +40,7 @@ class wm_args:
     learning_rate= 5e-6  # Higher LR to escape local optimum (for 90%→95% refinement)
     gradient_accumulation_steps = 1  # Balanced for 8-GPU training
     mixed_precision = 'fp16'
-    train_batch_size = 4  # Increased to reduce data loading bottleneck and improve GPU utilization
+    train_batch_size = 8  # Increased to reduce data loading bottleneck and improve GPU utilization
     shuffle = True
     num_train_epochs = 100
     max_train_steps = 500000
