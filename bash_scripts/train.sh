@@ -20,6 +20,8 @@ source .venv/bin/activate
 # or: conda activate ctrl-world
 
 # export environment variables
+export WANDB_MODE=offline
+
 export OMP_NUM_THREADS=1
 export PYTHONUNBUFFERED=1
 

@@ -67,7 +67,11 @@ accelerate launch \
   --config droid_irom_finetune \
   --tag "MMDD-test"
 ```
-See [train.sh](bash_scripts/train.sh) for an example
+See [train.sh](bash_scripts/train.sh) for an example. To view metrics (for wandb offline mode):
+
+```bash
+wandb sync ./wandb
+```
 
 ## Evaluation
 
