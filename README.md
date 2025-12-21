@@ -32,6 +32,25 @@ cd Ctrl-World
 bash bash_scripts/setup/download_models.sh
 ```
 
+## Install as Package (for Policy Interaction)
+
+If you want to use Ctrl-World's `WorldModelEnv` in another repository for policy interaction:
+
+```bash
+# Install in editable mode (recommended - changes are reflected immediately)
+cd /n/fs/iromdata/video_models/Ctrl-World
+pip install -e .
+```
+
+Then import from anywhere:
+```python
+from models.wm_env import WorldModelEnv
+
+# Initialize the environment
+env = WorldModelEnv(wm_ckpt="path/to/checkpoint.pth", control_mode="joint_velocity")
+obs, info = env.reset(idx=0)
+```
+
 ## Data Processing (Optional)
 
 If the provided dataset is already processed, ignore this step. 

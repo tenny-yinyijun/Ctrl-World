@@ -12,6 +12,7 @@ numpy
 decord
 omegaconf
 einops
+imageio
 scipy
 pandas
 opencv-python

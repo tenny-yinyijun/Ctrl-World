@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ctrl-world"
+version = "0.1.0"
+description = "Ctrl-World: World Model Environment for Robot Control"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+dependencies = [
+    "diffusers==0.34.0",
+    "transformers==4.48.1",
+    "torch==2.7.1",
+    "mediapy",
+    "wandb",
+    "swanlab",
+    "accelerate",
+    "tqdm",
+    "numpy",
+    "decord",
+    "einops",
+    "scipy",
+    "pandas",
+    "opencv-python",
+    "gymnasium",  # for gym.Env
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "flake8",
+]
+
+[tool.setuptools]
+packages = ["models", "models.action_adapter", "dataset", "eval", "metric", "scripts", "configs"]
+
+[tool.setuptools.package-data]
+"*" = ["*.txt", "*.md"]

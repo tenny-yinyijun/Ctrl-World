@@ -110,6 +110,7 @@ class agent():
         instruction = anno['texts'][0]
         car_action = np.array(anno['states'])
         car_action = car_action[frames_ids]
+        # joint_pos = np.array(anno['observation.state.joint_position'])
         joint_pos = np.array(anno['joints'])
         joint_pos = joint_pos[frames_ids]
 
