@@ -70,6 +70,16 @@ class Dataset_mix(Dataset):
         self.max_id = max(self.samples_len)
         print('samples_len:',self.samples_len, 'max_id:',self.max_id)
 
+        # Curriculum learning support
+        self.use_curriculum = getattr(args, 'use_curriculum', False)
+        self.curriculum_scheduler = None
+        self.curriculum_indices = {0: [], 1: [], 2: [], 3: [], 4: []}  # level -> sample indices
+        self.curriculum_metadata = {}  # (dataset_idx, (episode_id, frame_id)) -> {level, distance}
+
+        if self.use_curriculum and mode == 'train':
+            self._load_curriculum_data(args)
+            self._create_curriculum_indices()
+
     def __len__(self):
         return self.max_id
 
@@ -128,6 +138,90 @@ class Dataset_mix(Dataset):
         clip_range = clip_max - clip_min
         rdata = (data - clip_min) / clip_range * (data_max - data_min) + data_min
         return rdata
+
+    def _load_curriculum_data(self, args):
+        """Load curriculum_results_5levels/level_X_samples.json for each dataset"""
+        dataset_root_path = args.dataset_root_path
+        dataset_names = args.dataset_names.split('+')
+
+        for dataset_idx, dataset_name in enumerate(dataset_names):
+            curriculum_dir = f'{dataset_root_path}/{dataset_name}/curriculum'
+
+            # Check if curriculum directory exists
+            if not os.path.exists(curriculum_dir):
+                warnings.warn(f"Curriculum directory not found: {curriculum_dir}. Using uniform sampling.")
+                self.use_curriculum = False
+                return
+
+            # Load each level file (level_0_samples.json through level_4_samples.json)
+            for level in range(5):
+                level_file = f'{curriculum_dir}/level_{level}_samples.json'
+                try:
+                    with open(level_file, 'r') as f:
+                        level_samples = json.load(f)
+
+                    # Store mapping: {(episode_id, frame_id): curriculum_level}
+                    for sample in level_samples:
+                        key = (sample['episode_id'], sample['frame_id'])
+                        self.curriculum_metadata[(dataset_idx, key)] = {
+                            'level': level,
+                            'distance': sample.get('min_distance_to_centroid', 0.0)
+                        }
+                except Exception as e:
+                    warnings.warn(f"Failed to load {level_file}: {e}. Disabling curriculum.")
+                    self.use_curriculum = False
+                    return
+
+        print(f"Loaded curriculum metadata: {len(self.curriculum_metadata)} samples across 5 levels")
+
+    def _create_curriculum_indices(self):
+        """Create efficient lookup: level -> list of sample indices"""
+        for dataset_idx, samples in enumerate(self.samples_all):
+            for sample_idx, sample in enumerate(samples):
+                episode_id = sample['episode_id']
+                frame_id = sample['frame_ids'][0]
+                key = (episode_id, frame_id)
+
+                metadata = self.curriculum_metadata.get((dataset_idx, key))
+                if metadata:
+                    level = metadata['level']
+                    # Compute global index in dataset
+                    global_idx = sum(self.samples_len[:dataset_idx]) + sample_idx
+                    self.curriculum_indices[level].append(global_idx)
+
+        # Log statistics
+        print("Curriculum level distribution:")
+        for level in range(5):
+            count = len(self.curriculum_indices[level])
+            print(f"  Level {level}: {count} samples")
+
+    def get_sample_weights(self, current_step):
+        """Compute per-sample weights based on curriculum scheduler"""
+        if not self.use_curriculum or self.curriculum_scheduler is None:
+            return None
+
+        # Get current level probabilities from scheduler
+        level_probs = self.curriculum_scheduler.get_level_probabilities(current_step)
+
+        # Create weight array for all samples
+        weights = torch.zeros(self.max_id, dtype=torch.float32)
+
+        for level, prob in enumerate(level_probs):
+            indices = self.curriculum_indices[level]
+            if len(indices) > 0:
+                # Distribute probability uniformly within level
+                weight_per_sample = prob / len(indices)
+                for idx in indices:
+                    weights[idx] = weight_per_sample
+
+        # Normalize so sum = len(dataset) for proper sampling
+        if weights.sum() > 0:
+            weights = weights * len(weights) / weights.sum()
+        else:
+            # Fallback to uniform if all weights are zero
+            weights = torch.ones(self.max_id, dtype=torch.float32)
+
+        return weights
 
     def __getitem__(self, index):
 

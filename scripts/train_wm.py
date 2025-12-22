@@ -22,9 +22,12 @@ import mediapy
 from models.ctrl_world import CrtlWorld
 # from droid_irom_finetune_lora import wm_args as wm_args_lora
 from droid_irom_finetune import wm_args as wm_args_full
+from droid_irom_finetune_curriculum import wm_args as wm_args_curriculum
 # from droid_irom_finetune_continue import wm_args as wm_args_cont
 # from droid_irom_finetune_small import wm_args as wm_args_small
 import math
+from dataset.curriculum_scheduler import CurriculumScheduler
+from dataset.curriculum_sampler import DynamicCurriculumSampler
 
 
 def main(args):
@@ -236,10 +239,40 @@ def main(args):
         val_dataset = Dataset_mix(val_args, mode='val')
         val_datasets.append((val_dataset, prefix))
 
+    # Initialize curriculum learning if enabled
+    curriculum_sampler = None
+    if getattr(args, 'use_curriculum', False):
+        print(f"Initializing curriculum learning with {args.curriculum_schedule_type} schedule")
+
+        # Create curriculum scheduler
+        curriculum_total_steps = getattr(args, 'curriculum_total_steps', None) or args.max_train_steps
+        scheduler = CurriculumScheduler(
+            schedule_type=args.curriculum_schedule_type,
+            total_steps=curriculum_total_steps,
+            num_levels=5,
+            warmup_steps=getattr(args, 'curriculum_warmup_steps', 1000),
+            stabilization_steps=getattr(args, 'curriculum_stabilization_steps', 0),
+            initial_dist=getattr(args, 'curriculum_initial_dist', None),
+            final_dist=getattr(args, 'curriculum_final_dist', None),
+            schedule_params=getattr(args, 'curriculum_schedule_params', None),
+        )
+        train_dataset.curriculum_scheduler = scheduler
+
+        # Create initial sample weights
+        initial_weights = train_dataset.get_sample_weights(current_step=0)
+        if initial_weights is not None:
+            curriculum_sampler = DynamicCurriculumSampler(
+                train_dataset,
+                initial_weights,
+                num_samples=len(train_dataset)
+            )
+            print(f"Curriculum sampler created with {len(train_dataset)} samples")
+
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=args.train_batch_size,
-        shuffle=args.shuffle,
+        sampler=curriculum_sampler if curriculum_sampler else None,
+        shuffle=args.shuffle if curriculum_sampler is None else False,  # Don't shuffle if using sampler
         num_workers=args.num_workers,
         pin_memory=True,
         prefetch_factor=2,
@@ -292,17 +325,39 @@ def main(args):
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
+
+                # Update curriculum weights periodically
+                curriculum_update_interval = getattr(args, 'curriculum_update_interval', 100)
+                if curriculum_sampler and global_step % curriculum_update_interval == 0:
+                    new_weights = train_dataset.get_sample_weights(global_step)
+                    curriculum_sampler.update_weights(new_weights)
+
                 # log loss and lr every N steps (configurable)
                 logging_steps = args.logging_steps if hasattr(args, 'logging_steps') else 100
                 if global_step % logging_steps == 0:
                     avg_train_loss = train_loss / logging_steps
                     avg_grad_norm = grad_norm / logging_steps
                     progress_bar.set_postfix({"loss": avg_train_loss})
-                    accelerator.log({
+
+                    # Prepare logging dictionary
+                    logs = {
                         "train_loss": avg_train_loss,
                         "learning_rate": optimizer.param_groups[0]['lr'],
                         "grad_norm": avg_grad_norm
-                    }, step=global_step)
+                    }
+
+                    # Add curriculum metrics if enabled
+                    if getattr(args, 'use_curriculum', False) and train_dataset.curriculum_scheduler:
+                        level_probs = train_dataset.curriculum_scheduler.get_level_probabilities(global_step)
+                        curriculum_logs = {
+                            f"curriculum/level_{i}_prob": prob
+                            for i, prob in enumerate(level_probs)
+                        }
+                        # Add overall curriculum progress
+                        curriculum_logs['curriculum/progress'] = min(1.0, global_step / args.max_train_steps)
+                        logs.update(curriculum_logs)
+
+                    accelerator.log(logs, step=global_step)
                     train_loss = 0.0
                     grad_norm = 0.0
                 # save ckpt every checkpointing_steps
@@ -535,6 +590,8 @@ if __name__ == "__main__":
     
     if args_new.config == "droid_irom_finetune":
         wm_args = wm_args_full
+    elif args_new.config == "droid_irom_finetune_curriculum":
+        wm_args = wm_args_curriculum
     # elif args_new.config == "droid_irom_finetune_lora":
     #     wm_args = wm_args_lora
     # elif args_new.config == "droid_irom_finetune_small":

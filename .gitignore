@@ -11,6 +11,7 @@ dataset_eval_metrics/
 dataset_eval/
 dataset_meta_info/
 detector*/
+*.egg-info/
 stable-video-diffusion-img2vid/
 output*
 dataset_example/merge.py

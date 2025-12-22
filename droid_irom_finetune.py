@@ -43,7 +43,7 @@ class wm_args:
     train_batch_size = 8  # Increased to reduce data loading bottleneck and improve GPU utilization
     shuffle = True
     num_train_epochs = 100
-    max_train_steps = 500000
+    max_train_steps = 100000
     logging_steps = 10  # Log training loss, LR, grad norm every N steps
     checkpointing_steps = 5000
     validation_steps = 2500
@@ -89,6 +89,37 @@ class wm_args:
     #          ["to_q", "to_k", "to_v", "to_out.0", "ff.net.0.proj", "ff.net.2"] for attention + FFN (more params)
     train_action_encoder = True  # Whether to train action_encoder (recommended: True, it's small and task-specific)
 
+    ########################### Curriculum Learning ###########################
+    # Enable curriculum learning (default: disabled for backward compatibility)
+    use_curriculum = False
+
+    # Curriculum schedule type: 'linear', 'exponential', 'step', 'polynomial'
+    curriculum_schedule_type = 'linear'
+
+    # Warmup period before curriculum starts (steps)
+    curriculum_warmup_steps = 1000
+
+    # Stabilization period - how many steps at the end to maintain final distribution
+    # This allows training to stabilize with uniform (or final) sampling
+    curriculum_stabilization_steps = 0
+
+    # How often to update curriculum sample weights (steps)
+    curriculum_update_interval = 2000
+
+    # Total steps for curriculum progression (default: same as max_train_steps)
+    curriculum_total_steps = None  # Will default to max_train_steps
+
+    # Initial difficulty distribution (bias toward easy samples)
+    # Default: [0.6, 0.3, 0.1, 0.0, 0.0] - 60% level 0, 30% level 1, 10% level 2
+    curriculum_initial_dist = None
+
+    # Final difficulty distribution (uniform across all levels)
+    # Default: [0.2, 0.2, 0.2, 0.2, 0.2] - 20% each level
+    curriculum_final_dist = None
+
+    # Schedule-specific parameters (optional, for advanced use)
+    curriculum_schedule_params = None
+
     ########################### rollout args ############################
     # policy
     task_type: str = "pickplace" # choose from ['pickplace', 'towel_fold', 'wipe_table', 'tissue', 'close_laptop','tissue','drawer','stack']
@@ -110,6 +141,19 @@ class wm_args:
 
     # select different traj for different tasks
     def __post_init__(self):
+        # Set curriculum defaults
+        if self.curriculum_total_steps is None:
+            self.curriculum_total_steps = self.max_train_steps
+
+        if self.curriculum_initial_dist is None:
+            self.curriculum_initial_dist = [0.6, 0.3, 0.1, 0.0, 0.0]
+
+        if self.curriculum_final_dist is None:
+            self.curriculum_final_dist = [0.2, 0.2, 0.2, 0.2, 0.2]
+
+        if self.curriculum_schedule_params is None:
+            self.curriculum_schedule_params = {}
+
         # Per-task gripper max
         self.gripper_max = self.gripper_max_dict.get(self.task_type, 0.75)
         # Default task_name
