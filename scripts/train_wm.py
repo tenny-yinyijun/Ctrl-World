@@ -283,6 +283,12 @@ def main(args):
     model, optimizer, train_dataloader = accelerator.prepare(
         model, optimizer, train_dataloader
     )
+
+    # Update curriculum_sampler reference to point to the prepared dataloader's sampler
+    # This is critical because accelerator.prepare() wraps the dataloader
+    if curriculum_sampler is not None:
+        curriculum_sampler = train_dataloader.sampler
+        print(f"Updated curriculum_sampler reference to prepared dataloader's sampler")
    
     ############################ training ##############################
     
@@ -331,6 +337,8 @@ def main(args):
                 if curriculum_sampler and global_step % curriculum_update_interval == 0:
                     new_weights = train_dataset.get_sample_weights(global_step)
                     curriculum_sampler.update_weights(new_weights)
+                    if accelerator.is_main_process and global_step % (curriculum_update_interval * 10) == 0:
+                        logger.info(f"[Curriculum] Updated weights at step {global_step}, weights sum: {new_weights.sum().item():.2f}")
 
                 # log loss and lr every N steps (configurable)
                 logging_steps = args.logging_steps if hasattr(args, 'logging_steps') else 100
