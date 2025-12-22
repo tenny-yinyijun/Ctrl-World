@@ -187,7 +187,7 @@ class CrtlWorld(nn.Module):
 
     def forward(self, batch):
         latents = batch['latent'] # (B, 16, 4, 32, 32)
-        texts = batch['text']
+        # texts = batch['text']
         dtype = self.unet.dtype
         device = self.unet.device
         P_mean=0.7
@@ -212,7 +212,7 @@ class CrtlWorld(nn.Module):
         # action condition
         action = batch['action'] # (B, f, 7)
         action = action.to(device)
-        action_hidden = self.action_encoder(action, texts, self.tokenizer, self.text_encoder, frame_level_cond=self.args.frame_level_cond) # (B, f, 1024)
+        action_hidden = self.action_encoder(action, frame_level_cond=self.args.frame_level_cond) # (B, f, 1024)
 
         # for classifier-free guidance, with 5% probability, set action_hidden to 0
         uncond_hidden_states = torch.zeros_like(action_hidden)

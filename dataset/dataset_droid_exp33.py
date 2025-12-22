@@ -278,7 +278,7 @@ class Dataset_mix(Dataset):
         data = dict()
 
         # instructions
-        data['text'] = label['texts'][0]
+        # data['text'] = label['texts'][0]
 
         # stack tokens of multi-view
         cond_cam_id1 = 0

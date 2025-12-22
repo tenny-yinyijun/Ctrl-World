@@ -484,7 +484,7 @@ def validate_video_generation(model, val_dataset, args, train_steps, videos_dir,
     batch_id = batch_id[int(id*(videos_col)):int((id+1)*(videos_col))]
     batch_list = [val_dataset.__getitem__(id) for id in batch_id]
     video_gt = torch.cat([t['latent'].unsqueeze(0) for i,t in enumerate(batch_list)],dim=0).to(device, non_blocking=True)
-    text = [t['text'] for i,t in enumerate(batch_list)]
+    # text = [t['text'] for i,t in enumerate(batch_list)]
     actions = torch.cat([t['action'].unsqueeze(0) for i,t in enumerate(batch_list)],dim=0).to(device, non_blocking=True)
     his_latent_gt, future_latent_ft = video_gt[:,:args.num_history], video_gt[:,args.num_history:]
     current_latent = future_latent_ft[:,0]
@@ -496,7 +496,7 @@ def validate_video_generation(model, val_dataset, args, train_steps, videos_dir,
     print(f"[VIDGEN][Rank {accelerator.process_index}] Starting inference for sample {id}", flush=True)
     with torch.no_grad():
         bsz = actions.shape[0]
-        action_latent = model.module.action_encoder(actions, text, model.module.tokenizer, model.module.text_encoder, args.frame_level_cond) if accelerator.num_processes > 1 else model.action_encoder(actions, text, model.tokenizer, model.text_encoder,args.frame_level_cond) # (8, 1, 1024)
+        action_latent = model.module.action_encoder(actions, frame_level_cond=args.frame_level_cond) if accelerator.num_processes > 1 else model.action_encoder(actions, frame_level_cond=args.frame_level_cond) # (8, 1, 1024)
         print("action_latent",action_latent.shape)
 
         _, pred_latents = CtrlWorldDiffusionPipeline.__call__(
