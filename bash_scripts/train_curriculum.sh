@@ -47,4 +47,4 @@ accelerate launch \
   --dataset_root_path /scratch/gpfs/AM43/yy4041/data/robot-play \
   --dataset_names v2_2025_12_17_1300 \
   --config droid_irom_finetune_curriculum \
-  --tag "curriculum-linear-100k"
+  --tag "1221-ailab-curriculum-100k"

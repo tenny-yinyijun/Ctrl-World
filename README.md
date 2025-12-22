@@ -70,7 +70,7 @@ accelerate launch \
 See [train.sh](bash_scripts/train.sh) for an example. To view metrics (for wandb offline mode):
 
 ```bash
-wandb sync ./wandb
+wandb sync /path/to/wandb/run
 ```
 
 ## Evaluation
