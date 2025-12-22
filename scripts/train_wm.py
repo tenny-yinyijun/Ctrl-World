@@ -32,11 +32,18 @@ from dataset.curriculum_sampler import DynamicCurriculumSampler
 
 def main(args):
     logger = get_logger(__name__, log_level="INFO")
+
+    # Use dispatch_batches to properly handle custom samplers (like DynamicCurriculumSampler)
+    # in distributed training without replacing them with SequentialSampler
+    from accelerate import DataLoaderConfiguration
+    dataloader_config = DataLoaderConfiguration(dispatch_batches=True) if getattr(args, 'use_curriculum', False) else None
+
     accelerator = Accelerator(
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         mixed_precision=args.mixed_precision,
         log_with='wandb',
-        project_dir=args.output_dir
+        project_dir=args.output_dir,
+        dataloader_config=dataloader_config
     )
 
     # model and optimizer
@@ -284,11 +291,16 @@ def main(args):
         model, optimizer, train_dataloader
     )
 
-    # Update curriculum_sampler reference to point to the prepared dataloader's sampler
-    # This is critical because accelerator.prepare() wraps the dataloader
+    # With dispatch_batches=True, the DynamicCurriculumSampler is preserved at
+    # train_dataloader.batch_sampler.sampler (not train_dataloader.sampler)
     if curriculum_sampler is not None:
-        curriculum_sampler = train_dataloader.sampler
-        print(f"Updated curriculum_sampler reference to prepared dataloader's sampler")
+        if hasattr(train_dataloader, 'batch_sampler') and hasattr(train_dataloader.batch_sampler, 'sampler'):
+            curriculum_sampler = train_dataloader.batch_sampler.sampler
+            print(f"Found DynamicCurriculumSampler at batch_sampler.sampler (type: {type(curriculum_sampler).__name__})")
+        else:
+            print(f"Warning: Could not find DynamicCurriculumSampler in prepared dataloader!")
+            print(f"Dataloader type: {type(train_dataloader)}, sampler type: {type(train_dataloader.sampler)}")
+            curriculum_sampler = None
    
     ############################ training ##############################
     
