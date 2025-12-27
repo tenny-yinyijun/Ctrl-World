@@ -22,6 +22,7 @@ import mediapy
 from models.ctrl_world import CrtlWorld
 # from droid_irom_finetune_lora import wm_args as wm_args_lora
 from droid_irom_finetune import wm_args as wm_args_full
+from droid_irom_finetune_neu import wm_args as wm_args_neu
 from droid_irom_finetune_curriculum import wm_args as wm_args_curriculum
 # from droid_irom_finetune_continue import wm_args as wm_args_cont
 # from droid_irom_finetune_small import wm_args as wm_args_small
@@ -612,6 +613,8 @@ if __name__ == "__main__":
         wm_args = wm_args_full
     elif args_new.config == "droid_irom_finetune_curriculum":
         wm_args = wm_args_curriculum
+    elif args_new.config == "droid_irom_finetune_neu":
+        wm_args = wm_args_neu
     # elif args_new.config == "droid_irom_finetune_lora":
     #     wm_args = wm_args_lora
     # elif args_new.config == "droid_irom_finetune_small":
