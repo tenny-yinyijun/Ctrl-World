@@ -148,7 +148,8 @@ class agent():
         annotation_path = f"{args.val_dataset_dir}/annotation/train/{id}.json"
         if not os.path.exists(annotation_path):
             annotation_path = f"{args.val_dataset_dir}/annotation/val/{id}.json"
-
+        if not os.path.exists(annotation_path):
+            annotation_path = f"{args.val_dataset_dir}/annotation/{id}.json"
         # calculate raw length
         with open(annotation_path) as f:
             anno = json.load(f)

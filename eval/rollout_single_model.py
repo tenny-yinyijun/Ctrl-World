@@ -91,7 +91,12 @@ def run_inference(model_alias: str, dataset_dir: str, registry_path: str = "mode
         args.clip_model_path = model_config['clip_model_path']
 
     # Find all trajectories in the dataset
+    # Support both v1 (train/val splits) and v2 (flat structure) datasets
     annotation_files = []
+    
+    print("dataset_dir=", dataset_dir)
+
+    # First try v1 structure (annotation/train/, annotation/val/)
     for split in ['train', 'val']:
         split_dir = os.path.join(dataset_dir, 'annotation', split)
         if os.path.exists(split_dir):
@@ -99,6 +104,18 @@ def run_inference(model_alias: str, dataset_dir: str, registry_path: str = "mode
             for f in split_files:
                 traj_id = os.path.basename(f).replace('.json', '')
                 annotation_files.append((split, traj_id))
+    print("v1 structure: len=", len(annotation_files))
+    # If no files found, try v2 structure (annotation/*.json directly)
+    if len(annotation_files) == 0:
+        annotation_dir = os.path.join(dataset_dir, 'annotation')
+        print("annotation_dir=", annotation_dir)
+        if os.path.exists(annotation_dir):
+            annotation_file_paths = glob.glob(os.path.join(annotation_dir, '*.json'))
+            print(annotation_file_paths)
+            for f in annotation_file_paths:
+                traj_id = os.path.basename(f).replace('.json', '')
+                # Use 'test' as default split for v2 datasets
+                annotation_files.append(('test', traj_id))
 
     # Sort by trajectory ID
     annotation_files.sort(key=lambda x: int(x[1]))
@@ -126,7 +143,13 @@ def run_inference(model_alias: str, dataset_dir: str, registry_path: str = "mode
     for split, val_id_i in tqdm(annotation_files, desc="Processing trajectories"):
         try:
             # Get trajectory length and calculate interact_num
-            annotation_path = f"{dataset_dir}/annotation/{split}/{val_id_i}.json"
+            # Handle both v1 (with split subdirs) and v2 (flat) structures
+            if split in ['train', 'val']:
+                # V1 structure: annotation/train/0.json or annotation/val/0.json
+                annotation_path = f"{dataset_dir}/annotation/{split}/{val_id_i}.json"
+            else:
+                # V2 structure: annotation/0.json
+                annotation_path = f"{dataset_dir}/annotation/{val_id_i}.json"
             with open(annotation_path) as f:
                 anno = json.load(f)
                 if 'observation.state.cartesian_position' in anno:

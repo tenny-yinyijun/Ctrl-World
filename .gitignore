@@ -30,6 +30,7 @@ tmp_*
 slurm_outputs/
 *results/
 eval_*/
+*_eval/
 evaluation_*/
 .venv/
 

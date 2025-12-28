@@ -5,7 +5,7 @@
 #SBATCH --ntasks-per-node=1                             ## Number of tasks per node
 #SBATCH --cpus-per-task=8                               ## CPU cores per task
 #SBATCH --mem=100G                                      ## Memory per node
-#SBATCH --time=4:00:00                                  ## Walltime
+#SBATCH --time=10:00:00                                  ## Walltime
 #SBATCH --job-name=dataset                              ## Job Name
 #SBATCH --output=slurm_outputs/%x/out_log_%x_%j.out     ## Output File
 #SBATCH --mail-type=FAIL                                ## Mail events, e.g., NONE, BEGIN, END, FAIL, ALL.
@@ -29,8 +29,8 @@ export PYTHONUNBUFFERED=1
 
 
 python scripts/process_irom_data.py \
-    --irom_data_path /n/fs/iromdata/irom_droid_data/held-out/v2_human_failure \
-    --output_path /n/fs/iromdata/world_model_data/sanity/v2_human_failure \
-    --dataset_type demo
+    --irom_data_path /n/fs/iromdata/irom_droid_data/play_data/v2_2025_12_23_2600 \
+    --output_path /n/fs/iromdata/world_model_data/play/auto/v2_2025_12_23_2600 \
+    --dataset_type play
 
     

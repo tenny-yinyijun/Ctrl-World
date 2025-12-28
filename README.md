@@ -75,7 +75,20 @@ wandb sync /path/to/wandb/run
 
 ## Evaluation
 
-### Running Batch Inference + Metric Computation
+### (NEW) Running Batch Inference + Metric Computation
+```bash
+# First update assets/model_registry.json and submit_batch_jobs_final.sh, then run:
+bash eval/submit_batch_jobs_final.sh
+
+# After all generations are completed, compute the metrics:
+python eval/metric/compute_metrics.py \
+    --results_dir /path/to/results \
+    --output_dir /path/to/outputs \
+    --metrics mse ssim lpips \
+    --num_workers 4
+```
+
+### (OLD) Running Batch Inference + Metric Computation
 ```bash
 # First update assets/model_registry.json and submit_batch_jobs.sh, then run:
 bash eval/submit_batch_jobs.sh

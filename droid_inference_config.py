@@ -82,7 +82,7 @@ class wm_args:
     interact_num = 12 # number of interactions (each interaction contains pred_step steps)
 
     # wm
-    data_stat_path = 'dataset_meta_info/droid/stat.json'
+    data_stat_path = 'assets/stat.json'
     val_model_path = ckpt_path
     history_idx = [0,0,-12,-9,-6,-3]
 

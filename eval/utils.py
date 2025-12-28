@@ -238,3 +238,73 @@ def check_groundtruth_exists(groundtruth_dir: str, trajectory_id: str, num_views
             return False
 
     return True
+
+
+def is_v2_dataset(dataset_path: str) -> bool:
+    """
+    Check if a dataset follows the v2 format with test cases.
+
+    V2 datasets have:
+    - A manifest.json file at the root
+    - Multiple test case subdirectories
+
+    Args:
+        dataset_path: Path to dataset directory
+
+    Returns:
+        True if dataset is v2 format, False otherwise
+    """
+    manifest_path = os.path.join(dataset_path, "manifest.json")
+    return os.path.exists(manifest_path)
+
+
+def load_dataset_manifest(dataset_path: str) -> Dict:
+    """
+    Load manifest.json from a v2 dataset.
+
+    Args:
+        dataset_path: Path to v2 dataset directory
+
+    Returns:
+        Dictionary containing manifest data
+
+    Raises:
+        FileNotFoundError: If manifest.json doesn't exist
+    """
+    manifest_path = os.path.join(dataset_path, "manifest.json")
+    if not os.path.exists(manifest_path):
+        raise FileNotFoundError(f"Manifest not found at {manifest_path}")
+
+    with open(manifest_path, 'r') as f:
+        return json.load(f)
+
+
+def get_test_cases(dataset_path: str) -> List[str]:
+    """
+    Get list of test case names from a v2 dataset's manifest.
+
+    Args:
+        dataset_path: Path to v2 dataset directory
+
+    Returns:
+        List of test case names (e.g., ['deformable', 'miss'])
+
+    Raises:
+        FileNotFoundError: If manifest.json doesn't exist
+    """
+    manifest = load_dataset_manifest(dataset_path)
+    return list(manifest.get('test_cases', {}).keys())
+
+
+def get_test_case_path(dataset_path: str, test_case: str) -> str:
+    """
+    Get full path to a test case subdirectory.
+
+    Args:
+        dataset_path: Path to v2 dataset directory
+        test_case: Name of test case
+
+    Returns:
+        Full path to test case directory
+    """
+    return os.path.join(dataset_path, test_case)
