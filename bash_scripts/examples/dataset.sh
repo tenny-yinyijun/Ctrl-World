@@ -23,14 +23,8 @@ export OMP_NUM_THREADS=1
 export PYTHONUNBUFFERED=1
 
 python scripts/process_irom_data.py \
-    --irom_data_path /n/fs/iromdata/irom_droid_data/demo/2025-12-21-demo-v2 \
-    --output_path /n/fs/iromdata/world_model_data/demo/v2_1221_100 \
-    --dataset_type demo
-
-
-# python scripts/process_irom_data.py \
-#     --irom_data_path /n/fs/iromdata/irom_droid_data/play_data/v2_2025_12_23_2600 \
-#     --output_path /n/fs/iromdata/world_model_data/play/auto/v2_2025_12_23_2600 \
-#     --dataset_type play
+    --irom_data_path /n/fs/iromdata/irom_droid_data/play_data/v2_2025_12_23_2600 \
+    --output_path /n/fs/iromdata/world_model_data/play/auto/v2_2025_12_23_2600 \
+    --dataset_type play
 
     

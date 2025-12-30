@@ -1,0 +1,35 @@
+#!/bin/bash
+#SBATCH --partition=ailab
+#SBATCH --qos=ailab
+#SBATCH --account=am43
+#SBATCH --gres=gpu:8
+#SBATCH --ntasks=8
+#SBATCH --cpus-per-task=4        
+#SBATCH --mem=150G                                      ## Memory
+#SBATCH --time=24:00:00                                 ## Walltime
+#SBATCH --job-name=cw                                   ## Job Name
+#SBATCH --output=slurm_outputs/%x/out_log_%x_%j.out     ## Output File
+#SBATCH --mail-type=FAIL                                ## Mail events, e.g., NONE, BEGIN, END, FAIL, ALL.
+#SBATCH --mail-user=yy4041@princeton.edu
+
+source ~/.bashrc
+
+cd /scratch/gpfs/AM43/yy4041/Ctrl-World
+
+source .venv/bin/activate
+
+# export environment variables
+export WANDB_MODE=offline
+
+export OMP_NUM_THREADS=1
+export PYTHONUNBUFFERED=1
+
+# first update relevant hyperparameters/variables in droid_irom_finetune.py. Then run:
+
+accelerate launch \
+  --main_process_port 29501 \
+  scripts/train_wm.py \
+  --dataset_root_path /scratch/gpfs/AM43/yy4041/data/demo \
+  --dataset_names v2_1221_100 \
+  --config droid_irom_finetune \
+  --tag "1221-demo-ailab"
