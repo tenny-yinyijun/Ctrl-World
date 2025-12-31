@@ -15,10 +15,12 @@ This will submit one job per model + eval_item.
 
 After obtaining results, compute metrics:
 ```bash
-# After all generations are completed, compute the metrics:
-python eval/metric/compute_metrics.py \
-    --results_dir /path/to/results \
-    --output_dir /path/to/outputs \
-    --metrics mse ssim lpips \
-    --num_workers 4
+# compute and store per-video metrics
+python metric/compute_experiment_metrics.py --results_dir /path/to/results
+
+# visualize the computed metrics
+python metric/analyze_metrics.py \
+    --metrics_file /n/fs/iromdata/video_models/Ctrl-World/1227_eval/v2_test_combined/metrics/summary_statistics.json \
+    --table \
+    --metric mse
 ```

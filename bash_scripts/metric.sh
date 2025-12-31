@@ -4,9 +4,9 @@
 #SBATCH --gres=gpu:1                                    ## Number of GPUs per node
 #SBATCH --ntasks-per-node=1                             ## Number of tasks per node
 #SBATCH --cpus-per-task=8                               ## CPU cores per task
-#SBATCH --mem=100G                                      ## Memory per node
+#SBATCH --mem=50G                                      ## Memory per node
 #SBATCH --time=5:00:00                                  ## Walltime
-#SBATCH --job-name=dataset                              ## Job Name
+#SBATCH --job-name=metric                              ## Job Name
 #SBATCH --output=slurm_outputs/%x/out_log_%x_%j.out     ## Output File
 #SBATCH --mail-type=FAIL                                ## Mail events, e.g., NONE, BEGIN, END, FAIL, ALL.
 #SBATCH --mail-user=yy4041@princeton.edu
@@ -18,18 +18,8 @@ cd /n/fs/iromdata/video_models/Ctrl-World
 
 conda activate ctrl-world
 
-# export environment variables
 export OMP_NUM_THREADS=1
 export PYTHONUNBUFFERED=1
 
-python scripts/process_irom_data.py \
-    --irom_data_path /n/fs/iromdata/irom_droid_data/demo/v1_2025_12_30 \
-    --output_path /n/fs/iromdata/world_model_data/demo/v1_2025_1230_100 \
-    --dataset_type demo
+python metric/compute_experiment_metrics.py --results_dir /n/fs/iromdata/video_models/Ctrl-World/1227_eval/v2_test_combined
 
-# python scripts/process_irom_data.py \
-#     --irom_data_path /n/fs/iromdata/irom_droid_data/play_data/v2_2025_12_23_2600 \
-#     --output_path /n/fs/iromdata/world_model_data/play/auto/v2_2025_12_23_2600 \
-#     --dataset_type play
-
-    
