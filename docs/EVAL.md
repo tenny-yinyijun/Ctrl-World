@@ -23,4 +23,10 @@ python metric/analyze_metrics.py \
     --metrics_file /n/fs/iromdata/video_models/Ctrl-World/1227_eval/v2_test_combined/metrics/summary_statistics.json \
     --table \
     --metric mse
+
+# rank metric
+python metric/rank_metrics.py \
+    --rank_file /n/fs/iromdata/video_models/Ctrl-World/0101_eval/v2_0101_test/metrics/per_video_metrics.json \
+    --model_1 v2-demo-30p \
+    --model_2 v2_play_robot_ailab
 ```
