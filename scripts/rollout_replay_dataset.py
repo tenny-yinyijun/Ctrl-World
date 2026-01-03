@@ -175,7 +175,9 @@ class agent():
             car_action = np.array(anno['states'])
 
         # frame ids to read from gt actions (raw)
-        end_idx = start_idx + (num_frames+1) * actual_skip
+        end_idx = start_idx + num_frames * actual_skip
+        # end_idx = start_idx + (num_frames+1) * actual_skip
+        
         # FIX BUG WITH DIVISIBLE BY 3 ERROR
         if end_idx == len(car_action) + 3:
             print("previous end point:", end_idx)
@@ -370,10 +372,13 @@ def process_single_trajectory(Agent,
     print(f"{'='*80}")
 
     # read ground truth trajectory informations
+    # Need enough frames for all interaction steps:
+    # Last step needs frames at indices: (interact_num-1)*(pred_step-1) to (interact_num-1)*(pred_step-1) + pred_step
+    # So total frames needed: (interact_num-1)*(pred_step-1) + pred_step = interact_num*(pred_step-1) + 1
     eef_gt, joint_pos_gt, _, video_latents, instruction = Agent.get_traj_info(
-        val_id_i, 
-        start_idx=start_idx_i, 
-        num_frames=int(interact_num * (pred_step - 1)) # total number of generated frames
+        val_id_i,
+        start_idx=start_idx_i,
+        num_frames=int(interact_num * (pred_step - 1) + 1) # total number of frames needed
     )
     text_i = instruction
     print("Instruction:", instruction)

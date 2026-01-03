@@ -163,8 +163,7 @@ def run_inference(model_alias: str, dataset_dir: str, registry_path: str = "mode
             downsample_factor = 1 if args.downsampled else 3
             actual_skip = args.skip_step * downsample_factor
             available_frames = (total_length - args.start_idx) // actual_skip
-            history_frames = 8
-            interact_num = max(1, (available_frames - history_frames) // (pred_step - 1) - 1)
+            interact_num = max(1, available_frames // (pred_step - 1) - 1)
 
             print(f"\nTrajectory {val_id_i} ({split}): ")
             # total_length={total_length}, "
@@ -172,9 +171,11 @@ def run_inference(model_alias: str, dataset_dir: str, registry_path: str = "mode
 
             # make sure total_length aligns with actual_skip
             total_length_aligned = total_length - total_length % actual_skip
-            
+
             # Choose start idx so that ends exactly on last frame
-            start_id = total_length_aligned - interact_num * (pred_step-1) * actual_skip
+            # We need (interact_num * (pred_step-1) + 1) downsampled frames
+            # In raw space: (interact_num * (pred_step-1) + 1) * actual_skip raw frames
+            start_id = total_length_aligned - (interact_num * (pred_step-1) + 1) * actual_skip
 
             print(f"--raw length {total_length} -> {total_length_aligned}")
             print(f"--start_idx (raw) = {start_id} ")
