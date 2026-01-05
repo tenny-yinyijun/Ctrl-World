@@ -56,16 +56,18 @@ class WorldModelEnv(gym.Env):
         """Normalize data to [-1, 1] range using min-max normalization."""
         ndata = 2 * (data - data_min) / (data_max - data_min + eps) - 1
         return np.clip(ndata, clip_min, clip_max)
-
-    def get_traj_info(self, idx, start_idx=0, steps=None, skip=1):
+    
+    def _load_traj_info(self, dataset_dir, idx, start_idx=0, steps=8, skip=1, no_instruction=False):
         """
-        Load trajectory information from the droid_ctrl_world dataset.
+        Load trajectory information from a dataset.
 
         Args:
+            dataset_dir: base directory of the dataset
             idx: trajectory ID (string or int)
             start_idx: starting frame index
             steps: number of frames to load (if None, load all available frames)
             skip: frame skip interval
+            no_instruction: if True, return empty string for instruction
 
         Returns:
             eef_gt: end-effector ground truth poses (cartesian states)
@@ -74,8 +76,7 @@ class WorldModelEnv(gym.Env):
             video_latents: list of encoded video latents for each camera view
             instruction: text instruction for the task
         """
-        val_dataset_dir = "/n/fs/iromdata/droid_ctrl_world"
-        annotation_path = f"{val_dataset_dir}/annotation/train/{idx}.json"
+        annotation_path = f"{dataset_dir}/annotation/train/{idx}.json"
 
         with open(annotation_path) as f:
             anno = json.load(f)
@@ -95,7 +96,7 @@ class WorldModelEnv(gym.Env):
         print("Ground truth frames ids", frames_ids)
 
         # Get action and joint pos
-        instruction = anno['texts'][0]
+        instruction = "" if no_instruction else anno['texts'][0]
         eef_gt = np.array(anno['states'])
         eef_gt = eef_gt[frames_ids]
         joint_pos_gt = np.array(anno['observation.state.joint_position'])
@@ -109,7 +110,7 @@ class WorldModelEnv(gym.Env):
         video_latents = []
         for view_id in range(len(anno['videos'])):
             video_path = anno['videos'][view_id]['video_path']
-            video_path = f"{val_dataset_dir}/{video_path}"
+            video_path = f"{dataset_dir}/{video_path}"
             # Load videos from all views
             vr = VideoReader(video_path, ctx=cpu(0), num_threads=2)
             try:
@@ -136,9 +137,22 @@ class WorldModelEnv(gym.Env):
 
         return eef_gt, joint_pos_gt, video_dict, video_latents, instruction
 
-    def reset(self, idx):
-        # Reset the environment and return the initial observation and info
-        self.eef_gt, self.joint_pos_gt, self.video_dict, self.video_latents, self.instruction = self.get_traj_info(idx)
+    def get_lab_traj_info(self, set, idx, start_idx=0, steps=8, skip=1):
+        """Load trajectory information from the lab dataset."""
+        dataset_dir = f"/n/fs/iromdata/world_model_test/{set}"
+        return self._load_traj_info(dataset_dir, idx, start_idx, steps, skip, no_instruction=True)
+
+    def get_droid_traj_info(self, idx, start_idx=0, steps=8, skip=1):
+        """Load trajectory information from the droid_ctrl_world dataset."""
+        dataset_dir = "/n/fs/iromdata/droid_ctrl_world"
+        return self._load_traj_info(dataset_dir, idx, start_idx, steps, skip)
+
+    def reset(self, mode, test_id, set="v0"):
+        if mode == "droid":
+            # Reset the environment and return the initial observation and info
+            self.eef_gt, self.joint_pos_gt, self.video_dict, self.video_latents, self.instruction = self.get_droid_traj_info(test_id)
+        elif mode == "lab":
+            self.eef_gt, self.joint_pos_gt, self.video_dict, self.video_latents, self.instruction = self.get_lab_traj_info(set, test_id)
         self.predicted_latents = None
         self.video_to_save = []
         self.info_to_save = []

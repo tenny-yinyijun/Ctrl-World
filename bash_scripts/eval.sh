@@ -4,9 +4,9 @@
 #SBATCH --gres=gpu:1                                    ## Number of GPUs per node
 #SBATCH --ntasks-per-node=1                             ## Number of tasks per node
 #SBATCH --cpus-per-task=8                               ## CPU cores per task
-#SBATCH --mem=100G                                      ## Memory per node
-#SBATCH --time=10:00:00                                  ## Walltime
-#SBATCH --job-name=dataset                              ## Job Name
+#SBATCH --mem=20G                                      ## Memory per node
+#SBATCH --time=1:00:00                                  ## Walltime
+#SBATCH --job-name=evald                              ## Job Name
 #SBATCH --output=slurm_outputs/%x/out_log_%x_%j.out     ## Output File
 #SBATCH --mail-type=FAIL                                ## Mail events, e.g., NONE, BEGIN, END, FAIL, ALL.
 #SBATCH --mail-user=yy4041@princeton.edu
@@ -23,9 +23,10 @@ export OMP_NUM_THREADS=1
 export PYTHONUNBUFFERED=1
 
 python scripts/process_irom_data.py \
-    --irom_data_path /n/fs/iromdata/irom_droid_data/human-play/v0_2026_01_03 \
-    --output_path /n/fs/iromdata/world_model_data/play/human/v0_2026_01_03 \
-    --dataset_type demo
+    --irom_data_path /n/fs/iromdata/irom_droid_data/eval/v1/sanity \
+    --output_path /n/fs/iromdata/world_model_test/v1/0104_sanity \
+    --dataset_type demo \
+    --test
 
 # python scripts/process_irom_data.py \
 #     --irom_data_path /n/fs/iromdata/irom_droid_data/play_data/v0_2025_12_28_1-2200 \

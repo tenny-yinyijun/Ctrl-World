@@ -177,11 +177,18 @@ class CrtlWorld(nn.Module):
         self.action_encoder = Action_encoder2(action_dim=args.action_dim, action_num=int(args.num_history+args.num_frames), hidden_size=1024, text_cond=args.text_cond)
 
         # Control whether action_encoder is trainable
-        if hasattr(args, 'train_action_encoder') and not args.train_action_encoder:
-            print("Freezing action_encoder")
-            self.action_encoder.requires_grad_(False)
+        if hasattr(args, 'train_action_encoder'):
+            if args.train_action_encoder:
+                self.action_encoder.requires_grad_(True)
+            else:
+                self.action_encoder.requires_grad_(False)
         else:
-            print("Training action_encoder (fully trainable)")
+            self.action_encoder.requires_grad_(False)
+        # if hasattr(args, 'train_action_encoder') and not args.train_action_encoder:
+        #     print("Freezing action_encoder")
+        #     self.action_encoder.requires_grad_(False)
+        # else:
+        #     print("Training action_encoder (fully trainable)")
 
     
 

@@ -68,8 +68,14 @@ def main():
                         help='Skip meta info creation step (only run extract_latent)')
     parser.add_argument('--distributed', action='store_true',
                         help='Use accelerate launch for distributed processing')
+    parser.add_argument('--test', action='store_true',
+                        help='Test mode: skip metainfo and put all samples under train/ (no val/)')
 
     args = parser.parse_args()
+
+    # If test mode is enabled, automatically skip meta info creation
+    if args.test:
+        args.skip_meta = True
 
     # Step 1: Extract latents
     if not args.skip_extract:
@@ -94,6 +100,9 @@ def main():
 
         if args.debug:
             extract_cmd.append('--debug')
+
+        if args.test:
+            extract_cmd.append('--test')
 
         run_command(extract_cmd, "Step 1/2: Extracting latents")
     else:

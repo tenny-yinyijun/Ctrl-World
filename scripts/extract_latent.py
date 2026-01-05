@@ -12,7 +12,7 @@ from pathlib import Path
 
 class EncodeLatentDatasetIROM(Dataset):
     def __init__(self, irom_data_path, new_path, svd_path, device, dataset_type='demo',
-                 size=(192, 320), rgb_skip=3, skip_start_frames=0):
+                 size=(192, 320), rgb_skip=3, skip_start_frames=0, test_mode=False):
         """
         Dataset for encoding IROM trajectory data to latent space.
 
@@ -25,6 +25,7 @@ class EncodeLatentDatasetIROM(Dataset):
             size: Target video size (height, width)
             rgb_skip: Frame skip for downsampling video
             skip_start_frames: Number of frames to skip at the start to remove idle frames (demo only)
+            test_mode: If True, put all samples under train/ (no val/ split)
         """
         self.irom_data_path = irom_data_path
         self.new_path = new_path
@@ -32,6 +33,7 @@ class EncodeLatentDatasetIROM(Dataset):
         self.size = size
         self.skip = rgb_skip
         self.skip_start_frames = skip_start_frames if dataset_type == 'demo' else 0
+        self.test_mode = test_mode
         self.vae = AutoencoderKLTemporalDecoder.from_pretrained(svd_path, subfolder="vae").to(device)
 
         # Collect all episode directories
@@ -88,7 +90,8 @@ class EncodeLatentDatasetIROM(Dataset):
             print(f"Processing episode {idx}: {episode['dir'].name}")
 
         traj_id = idx  # Use index as trajectory ID
-        data_type = 'val' if traj_id % 10 == 9 else 'train'  # 10% val split
+        # In test mode, all samples go to train; otherwise 10% val split
+        data_type = 'train' if self.test_mode else ('val' if traj_id % 10 == 9 else 'train')
 
         try:
             if self.dataset_type == 'demo':
@@ -306,6 +309,8 @@ if __name__ == "__main__":
                         help='Number of frames to skip at the start to remove idle frames (demo only)')
     parser.add_argument('--debug', action='store_true',
                         help='Debug mode: only process 5 samples')
+    parser.add_argument('--test', action='store_true',
+                        help='Test mode: put all samples under train/ (no val/ split)')
     args = parser.parse_args()
 
     accelerator = Accelerator()
@@ -318,6 +323,7 @@ if __name__ == "__main__":
         size=(192, 320),
         rgb_skip=3,  # Downsample to 5Hz (assuming 15Hz input)
         skip_start_frames=args.skip_start_frames,
+        test_mode=args.test,
     )
 
     tmp_data_loader = torch.utils.data.DataLoader(
