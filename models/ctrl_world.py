@@ -190,8 +190,6 @@ class CrtlWorld(nn.Module):
         # else:
         #     print("Training action_encoder (fully trainable)")
 
-    
-
     def forward(self, batch):
         latents = batch['latent'] # (B, 16, 4, 32, 32)
         # texts = batch['text']
@@ -214,7 +212,6 @@ class CrtlWorld(nn.Module):
         condition_latent = einops.repeat(current_img, 'b c h w -> b f c h w', f=num_frames) # (8, 16,12, 32,32)
         if self.args.his_cond_zero:
             condition_latent[:, :num_history] = 0.0 # (B, num_history+num_frames, 4, 32, 32)
-
 
         # action condition
         action = batch['action'] # (B, f, 7)

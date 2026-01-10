@@ -221,7 +221,8 @@ class WorldModelEnv(gym.Env):
 
         else:
             joint_pos, cartesian_pose = self.get_action_cond(current_joint, current_pose, action_chunk)
-            self.his_joint.append(joint_pos[self.pred_step-1][None,:])  # (1, 8)
+            # FIX: Moved his_joint update to after forward_wm for timing consistency with his_eef and his_cond
+            # self.his_joint.append(joint_pos[self.pred_step-1][None,:])  # (1, 8)
 
         ##### forward world model
         
@@ -242,7 +243,10 @@ class WorldModelEnv(gym.Env):
         # push current step to history buffer
         self.his_eef.append(cartesian_pose[self.pred_step-1:self.pred_step]) #(1,7)
         self.his_cond.append(torch.cat([v[self.pred_step-1] for v in predicted_latents], dim=1).unsqueeze(0))  # (1, 4, 72, 40)
-        
+        # FIX: Update his_joint here for timing consistency (only for joint_velocity mode where joint_pos is computed)
+        if self.control_mode == "joint_velocity":
+            self.his_joint.append(joint_pos[self.pred_step-1][None,:])  # (1, 8)
+
         # if i == interact_num - 1:
         #     video_to_save.append(videos_cat)  # save all frames for the last interaction step
         # else:
