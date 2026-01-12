@@ -72,7 +72,7 @@ class wm_args:
 
     ########################### rollout args ############################
     # policy
-    task_type: str = "pickplace" # choose from ['pickplace', 'towel_fold', 'wipe_table', 'tissue', 'close_laptop','tissue','drawer','stack']
+    task_type: str = "towel_fold" # choose from ['pickplace', 'towel_fold', 'wipe_table', 'tissue', 'close_laptop','tissue','drawer','stack']
     gripper_max_dict = {'replay':1.0, 'pickplace':0.75, 'towel_fold':0.95, 'wipe_table':0.95, 'tissue':0.97, 'close_laptop':0.95,'drawer':0.75,'stack':0.75,}
     ##############################################################################
     policy_type = 'pi05' # choose from ['pi05', 'pi0', 'pi0fast']
